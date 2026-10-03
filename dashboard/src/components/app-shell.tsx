@@ -12,17 +12,19 @@ const LINKS = [
 
 export async function AppShell({
   current,
-  children
+  children,
+  compact = false
 }: {
   current: string;
   children: ReactNode;
+  compact?: boolean;
 }) {
   const user = await getRequestUser();
   const mark = initialsFor(user.displayName);
 
   return (
-    <div className="min-h-screen bg-[#fbf7f1] text-[#1d1a16]">
-      <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-6">
+    <div className={`${compact ? "flex h-dvh flex-col overflow-hidden" : "min-h-screen"} bg-[#fbf7f1] text-[#1d1a16]`}>
+      <header className="mx-auto flex w-full max-w-6xl shrink-0 items-center justify-between px-6 py-3">
         <Link href="/" className="flex items-center gap-3">
           <img src="/assets/logo_graphic.svg" alt="" className="h-8 w-10" />
           <img src="/assets/logo_text.svg" alt="PARALLAX" className="h-4 w-auto" />
@@ -60,7 +62,7 @@ export async function AppShell({
           </Link>
         ))}
       </nav>
-      <main className="mx-auto w-full max-w-6xl px-6 pb-16">{children}</main>
+      <main className={`mx-auto w-full max-w-6xl px-6 ${compact ? "flex min-h-0 flex-1 flex-col pb-3" : "pb-8"}`}>{children}</main>
     </div>
   );
 }

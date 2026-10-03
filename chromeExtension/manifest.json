@@ -51,7 +51,7 @@
         "https://*.facebook.com/*",
         "https://facebook.com/*"
       ],
-      "js": ["content/facebook.js"],
+      "js": ["content/fetch-indicator.js", "content/facebook.js"],
       "run_at": "document_start",
       "world": "ISOLATED"
     },
@@ -62,7 +62,7 @@
         "https://*.twitter.com/*",
         "https://twitter.com/*"
       ],
-      "js": ["content/twitter.js"],
+      "js": ["content/fetch-indicator.js", "content/twitter.js"],
       "run_at": "document_start",
       "world": "ISOLATED"
     }
