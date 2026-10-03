@@ -18,14 +18,16 @@ export function OverviewHero({
   activity: Metric;
 }) {
   return (
-    <div className="relative mx-auto mt-2 w-full max-w-6xl">
-      <div className="relative z-10 grid items-center gap-6 py-6 md:grid-cols-[minmax(160px,1fr)_minmax(280px,1.6fr)_minmax(160px,1fr)] md:gap-0 md:py-8">
-        <div className="flex h-full min-h-[280px] flex-col justify-between py-6 md:min-h-[420px] md:py-10">
+    <div className="relative mx-auto mt-1 flex min-h-0 w-full max-w-6xl flex-1">
+      <div className="relative z-10 grid min-h-0 h-full w-full flex-1 grid-rows-1 items-stretch gap-4 py-1 md:grid-cols-[minmax(160px,1fr)_minmax(280px,1.6fr)_minmax(160px,1fr)] md:gap-0">
+        <div className="flex min-h-0 flex-col justify-between py-2 md:py-6">
           <MetricCard metric={blocked} />
           <MetricCard metric={revealed} />
         </div>
-        <SunMoon className="relative z-0 mx-auto w-[min(640px,100%)]" />
-        <div className="flex h-full min-h-[280px] flex-col justify-between py-6 md:min-h-[420px] md:py-10 md:text-right">
+        <div className="flex min-h-0 items-center justify-center">
+          <SunMoon className="relative z-0 h-full w-auto max-w-full object-contain" />
+        </div>
+        <div className="flex min-h-0 flex-col justify-between py-2 md:py-6 md:text-right">
           <MetricCard metric={recovery} align="right" />
           <MetricCard metric={activity} align="right" />
         </div>
@@ -61,8 +63,8 @@ function MetricCard({
   return (
     <div className={`relative z-30 ${align === "right" ? "md:ml-auto md:text-right" : ""}`}>
       <p className="text-[11px] tracking-[0.18em] text-[#7a746b]">{metric.label}</p>
-      <p className="serif mt-2 text-4xl leading-none md:text-5xl">{metric.value}</p>
-      <p className="mt-2 max-w-[230px] text-sm text-[#7a746b] md:inline-block">{metric.detail}</p>
+      <p className="serif mt-1 text-4xl leading-none md:text-5xl">{metric.value}</p>
+      <p className="mt-1 max-w-[230px] text-sm text-[#7a746b] md:inline-block">{metric.detail}</p>
     </div>
   );
 }

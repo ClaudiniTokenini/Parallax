@@ -12,19 +12,19 @@ export default async function OverviewPage() {
   const data = getOverviewPayload(user.id);
 
   return (
-    <AppShell current="/">
+    <AppShell current="/" compact>
       <AutoRefresh />
-      <section className="pt-4">
-        <div className="flex flex-col justify-between gap-3 md:flex-row md:items-start">
-          <div>
-            <p className="text-xs tracking-[0.22em] text-[#7a746b]">AFFIRMATION FOR THE DAY</p>
-            <h1 className="serif mt-3 max-w-xl text-5xl leading-tight md:text-5xl">
-              {data.insight.affirmation}
-            </h1>
+      <section className="flex min-h-0 flex-1 flex-col">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <p className="shrink-0 text-xs tracking-[0.22em] text-[#7a746b]">AFFIRMATION FOR THE DAY</p>
             <PlayButton text={data.insight.affirmation} />
           </div>
-          <p className="pt-2 text-sm text-[#7a746b]">{data.dateLabel}</p>
+          <p className="shrink-0 text-sm text-[#7a746b]">{data.dateLabel}</p>
         </div>
+        <h1 className="serif mt-2 whitespace-nowrap text-[clamp(1.85rem,3.4vw,2.85rem)] leading-none">
+          {data.insight.affirmation}
+        </h1>
 
         <OverviewHero
           blocked={{
@@ -49,13 +49,13 @@ export default async function OverviewPage() {
           }}
         />
 
-        <div className="mx-auto mt-6 max-w-2xl text-center md:mt-2">
+        <div className="mx-auto mt-2 max-w-2xl shrink-0 text-center">
           <p className="text-xs tracking-[0.18em] text-[#7a746b]">
             RESULT FROM POST STATS + HEALTH DATA
           </p>
-          <h2 className="serif mt-3 text-5xl">{data.insight.headline}</h2>
-          <p className="mt-4 text-[#7a746b]">{data.insight.summary}</p>
-          <p className="mt-3 text-sm text-[#9a9388]">{data.insight.disclaimer}</p>
+          <h2 className="serif mt-1 text-3xl leading-tight md:text-4xl">{data.insight.headline}</h2>
+          <p className="mt-2 text-sm text-[#7a746b]">{data.insight.summary}</p>
+          <p className="mt-1 text-xs text-[#9a9388]">{data.insight.disclaimer}</p>
         </div>
       </section>
     </AppShell>

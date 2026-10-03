@@ -13,6 +13,7 @@
   const OVERLAY_ATTR = "data-parallax-overlay";
   const HOST_ATTR = "data-parallax-id";
   const BADGE_ATTR = "data-parallax-badge";
+  const FETCH_ATTR = "data-parallax-fetch";
 
   const CACHE_KEY = "plxFbClassified";
   const classified = new Map();
@@ -95,6 +96,8 @@
     updateBadgeText();
     if (!enabled) {
       pauseOverlays();
+      inFlight.clear();
+      globalThis.ParallaxFetchIndicator?.hide();
       reportStatus();
       return;
     }
@@ -150,11 +153,27 @@
     if (!(article instanceof Element)) return false;
     if (article.closest('[role="dialog"], [role="complementary"], [role="banner"]')) return false;
     if (article.parentElement?.closest('[role="article"]')) return false;
-    if (article.hasAttribute(OVERLAY_ATTR) || article.hasAttribute(BADGE_ATTR)) return false;
-    if (article.closest(`[${OVERLAY_ATTR}], [${BADGE_ATTR}]`)) return false;
+    if (
+      article.hasAttribute(OVERLAY_ATTR) ||
+      article.hasAttribute(BADGE_ATTR) ||
+      article.hasAttribute(FETCH_ATTR)
+    ) {
+      return false;
+    }
+    if (article.closest(`[${OVERLAY_ATTR}], [${BADGE_ATTR}], [${FETCH_ATTR}]`)) return false;
 
     if (article.closest('[role="feed"], [role="main"], [data-pagelet^="FeedUnit"]')) return true;
     return article.hasAttribute("aria-posinset") || Boolean(article.closest("[aria-posinset]"));
+  }
+
+  function beginClassify(id) {
+    inFlight.add(id);
+    globalThis.ParallaxFetchIndicator?.setBusy(true);
+  }
+
+  function endClassify(id) {
+    inFlight.delete(id);
+    globalThis.ParallaxFetchIndicator?.setBusy(inFlight.size > 0);
   }
 
   function processPost(article) {
@@ -189,12 +208,12 @@
     if (inFlight.has(id)) return;
     if ((failedUntil.get(id) || 0) > Date.now()) return;
 
-    inFlight.add(id);
+    beginClassify(id);
     recordStat("postsScanned");
     log("classifying", text.slice(0, 80));
 
     chrome.runtime.sendMessage({ type: "CLASSIFY_POST", text, postId: id }, (response) => {
-      inFlight.delete(id);
+      endClassify(id);
 
       if (chrome.runtime.lastError) {
         lastError = chrome.runtime.lastError.message;

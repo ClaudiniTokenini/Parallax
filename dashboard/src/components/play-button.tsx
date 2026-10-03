@@ -144,14 +144,14 @@ export function PlayButton({ text }: { text: string }) {
         onClick={() => void toggle()}
         disabled={loading}
         aria-pressed={playing}
-        className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#cbb8f3] px-5 py-2 text-sm font-medium text-[#1d1a16] disabled:opacity-60"
+        className="inline-flex items-center gap-2 rounded-full bg-[#cbb8f3] px-3 py-1 text-sm font-medium text-[#1d1a16] disabled:opacity-60"
       >
         <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white/70 text-[10px]">
           {playing ? "II" : "▶"}
         </span>
         {loading ? "Loading" : playing ? "Pause" : "Play"}
       </button>
-      {message ? <p className="mt-3 max-w-sm text-sm text-[#7a746b]">{message}</p> : null}
+      {message ? <p className="mt-1 max-w-sm text-xs text-[#7a746b]">{message}</p> : null}
     </div>
   );
 }
