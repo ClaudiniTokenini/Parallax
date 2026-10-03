@@ -63,12 +63,18 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.status !== "complete") return;
-  if (!isFacebookUrl(tab.url || "")) return;
+  const url = tab.url || "";
+  const file = isFacebookUrl(url)
+    ? "content/facebook.js"
+    : isTwitterUrl(url)
+      ? "content/twitter.js"
+      : null;
+  if (!file) return;
 
   chrome.scripting
     .executeScript({
       target: { tabId },
-      files: ["content/facebook.js"],
+      files: [file],
       world: "ISOLATED"
     })
     .catch((error) => console.warn("[Parallax] inject failed", error));
@@ -78,6 +84,20 @@ function isFacebookUrl(url) {
   try {
     const { hostname } = new URL(url);
     return hostname === "facebook.com" || hostname.endsWith(".facebook.com");
+  } catch {
+    return false;
+  }
+}
+
+function isTwitterUrl(url) {
+  try {
+    const { hostname } = new URL(url);
+    return (
+      hostname === "x.com" ||
+      hostname.endsWith(".x.com") ||
+      hostname === "twitter.com" ||
+      hostname.endsWith(".twitter.com")
+    );
   } catch {
     return false;
   }

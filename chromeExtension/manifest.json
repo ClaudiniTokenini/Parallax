@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Parallax",
-  "version": "0.2.1",
-  "description": "Blurs negative Facebook posts using a local FastAPI classifier.",
+  "version": "0.3.0",
+  "description": "Blurs negative Facebook and X/Twitter posts using a local FastAPI classifier.",
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
@@ -27,7 +27,11 @@
     "http://127.0.0.1:1234/*",
     "http://localhost:1234/*",
     "https://*.facebook.com/*",
-    "https://facebook.com/*"
+    "https://facebook.com/*",
+    "https://*.x.com/*",
+    "https://x.com/*",
+    "https://*.twitter.com/*",
+    "https://twitter.com/*"
   ],
   "optional_host_permissions": [
     "http://*/*",
@@ -41,6 +45,17 @@
         "https://facebook.com/*"
       ],
       "js": ["content/facebook.js"],
+      "run_at": "document_start",
+      "world": "ISOLATED"
+    },
+    {
+      "matches": [
+        "https://*.x.com/*",
+        "https://x.com/*",
+        "https://*.twitter.com/*",
+        "https://twitter.com/*"
+      ],
+      "js": ["content/twitter.js"],
       "run_at": "document_start",
       "world": "ISOLATED"
     }
