@@ -1,0 +1,49 @@
+{
+  "manifest_version": 3,
+  "name": "Parallax",
+  "version": "0.1.5",
+  "description": "Blurs negative Facebook posts using a local LM Studio classifier.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_title": "Parallax",
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": ["storage", "scripting"],
+  "host_permissions": [
+    "http://127.0.0.1/*",
+    "http://localhost/*",
+    "http://127.0.0.1:1234/*",
+    "http://localhost:1234/*",
+    "https://*.facebook.com/*",
+    "https://facebook.com/*"
+  ],
+  "optional_host_permissions": [
+    "http://127.0.0.1/*",
+    "http://localhost/*",
+    "http://127.0.0.1:1234/*",
+    "http://localhost:1234/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.facebook.com/*",
+        "https://facebook.com/*"
+      ],
+      "js": ["content/facebook.js"],
+      "run_at": "document_start",
+      "world": "ISOLATED"
+    }
+  ]
+}

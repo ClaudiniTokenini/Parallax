@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Parallax</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="card">
+      <header class="brand">
+        <img class="logo" src="../icons/icon48.png" alt="" />
+        <div>
+          <h1>Parallax</h1>
+          <p>Local negative-content filter</p>
+        </div>
+      </header>
+
+      <p id="llm-status" class="status">Checking LM Studio…</p>
+      <p id="fb-status" class="status">Checking Facebook tab…</p>
+
+      <button id="connect-btn" type="button" class="secondary" hidden>Connect to LM Studio</button>
+      <button id="dashboard-btn" type="button">Show dashboard</button>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

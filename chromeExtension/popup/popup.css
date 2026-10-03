@@ -1,0 +1,97 @@
+:root {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 280px;
+  font-family: system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: #0c101c;
+  color: #f4f7fb;
+}
+
+.card {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 18px;
+  letter-spacing: -0.03em;
+}
+
+.brand p {
+  margin: 2px 0 0;
+  color: #9aa7b8;
+  font-size: 12px;
+}
+
+.status {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #171d2c;
+  color: #c5d0dc;
+  font-size: 12px;
+}
+
+.status.ok {
+  color: #7ee0d2;
+}
+
+.status.err {
+  color: #ffb4b4;
+}
+
+#dashboard-btn,
+#connect-btn {
+  appearance: none;
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+#dashboard-btn {
+  background: #38d6c4;
+  color: #08201c;
+}
+
+#dashboard-btn:hover,
+#dashboard-btn:focus-visible {
+  background: #5ee4d4;
+  outline: none;
+}
+
+#connect-btn.secondary {
+  background: #171d2c;
+  color: #7ee0d2;
+  border: 1px solid #38d6c4;
+}
+
+#connect-btn.secondary:hover,
+#connect-btn.secondary:focus-visible {
+  background: #1f2738;
+  outline: none;
+}
