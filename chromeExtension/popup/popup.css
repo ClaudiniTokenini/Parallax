@@ -58,8 +58,26 @@ h1 {
   color: #7ee0d2;
 }
 
-.status.err {
-  color: #ffb4b4;
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #9aa7b8;
+  font-size: 12px;
+}
+
+#api-url {
+  appearance: none;
+  border: 1px solid #2a3347;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #0c101c;
+  color: #f4f7fb;
+  font-size: 13px;
+}
+
+#api-url:focus {
+  outline: 1px solid #38d6c4;
 }
 
 #dashboard-btn,

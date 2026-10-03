@@ -2,31 +2,39 @@ const llmStatusEl = document.getElementById("llm-status");
 const fbStatusEl = document.getElementById("fb-status");
 const dashboardBtn = document.getElementById("dashboard-btn");
 const connectBtn = document.getElementById("connect-btn");
+const apiUrlInput = document.getElementById("api-url");
 
-const LM_ORIGINS = [
-  "http://127.0.0.1/*",
-  "http://localhost/*",
-  "http://127.0.0.1:1234/*",
-  "http://localhost:1234/*"
-];
+const DEFAULT_API = "http://127.0.0.1:8000";
 
 dashboardBtn.addEventListener("click", () => {
   chrome.tabs.create({ url: chrome.runtime.getURL("dashboard.html") });
 });
 
+chrome.storage.local.get({ apiBaseUrl: DEFAULT_API }, (stored) => {
+  apiUrlInput.value = stored.apiBaseUrl || DEFAULT_API;
+  pingApi();
+});
+
 connectBtn.addEventListener("click", async () => {
+  const apiBaseUrl = normalizeApiUrl(apiUrlInput.value);
+  apiUrlInput.value = apiBaseUrl;
   connectBtn.disabled = true;
+
   try {
-    await chrome.permissions.request({ origins: LM_ORIGINS });
+    const origin = `${new URL(apiBaseUrl).origin}/*`;
+    await chrome.permissions.request({ origins: [origin, "http://*/*"] });
+    await chrome.storage.local.set({ apiBaseUrl });
   } catch (error) {
     llmStatusEl.textContent = String(error);
     llmStatusEl.classList.add("err");
+    connectBtn.disabled = false;
+    return;
   }
+
   connectBtn.disabled = false;
   pingApi();
 });
 
-pingApi();
 pingFacebook();
 
 function pingApi() {
@@ -38,13 +46,11 @@ function pingApi() {
       const detail = response?.error || chrome.runtime.lastError?.message || "offline";
       llmStatusEl.textContent = detail;
       llmStatusEl.classList.add("err");
-      connectBtn.hidden = false;
       return;
     }
 
-    llmStatusEl.textContent = `API ready · ${response.model}`;
+    llmStatusEl.textContent = `API ready · ${response.model} · ${response.baseUrl}`;
     llmStatusEl.classList.add("ok");
-    connectBtn.hidden = true;
   });
 }
 
@@ -69,6 +75,19 @@ function pingFacebook() {
       fbStatusEl.classList.add(response.lastError ? "err" : "ok");
     });
   });
+}
+
+function normalizeApiUrl(value) {
+  const trimmed = String(value || DEFAULT_API).trim().replace(/\/$/, "");
+  try {
+    const url = new URL(trimmed);
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      throw new Error("Use http://");
+    }
+    return url.origin;
+  } catch {
+    return DEFAULT_API;
+  }
 }
 
 function isFacebookUrl(url) {

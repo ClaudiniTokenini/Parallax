@@ -95,35 +95,25 @@ function enqueue(task) {
 function explainNetworkError(error) {
   const text = String(error?.message || error || "Unknown error");
   if (/Failed to fetch|NetworkError|Load failed/i.test(text)) {
-    return "Cannot reach Parallax API at 127.0.0.1:8000. Start the FastAPI server.";
+    return "Cannot reach Parallax API. Check the API URL in the popup and that the FastAPI server listens on 0.0.0.0.";
   }
   return text;
 }
 
-async function getCandidateBases() {
+async function getApiBase() {
   const stored = await chrome.storage.local.get({
     apiBaseUrl: cachedApiBase || API_BASES[0]
   });
-  const preferred = String(stored.apiBaseUrl || API_BASES[0]).replace(/\/$/, "");
-  return [...new Set([preferred, ...API_BASES])];
+  const base = String(stored.apiBaseUrl || API_BASES[0]).replace(/\/$/, "");
+  cachedApiBase = base;
+  return base;
 }
 
 async function apiFetch(path, init = {}) {
-  const bases = await getCandidateBases();
-  let lastError = null;
-
-  for (const base of bases) {
-    try {
-      const response = await fetchLoopback(`${base}${path}`, init);
-      cachedApiBase = base;
-      await chrome.storage.local.set({ apiBaseUrl: base });
-      return response;
-    } catch (error) {
-      lastError = error;
-    }
-  }
-
-  throw lastError || new Error("Cannot reach Parallax API");
+  const base = await getApiBase();
+  const response = await fetchLoopback(`${base}${path}`, init);
+  cachedApiBase = base;
+  return response;
 }
 
 async function fetchLoopback(url, init = {}) {
@@ -136,8 +126,18 @@ async function fetchLoopback(url, init = {}) {
     cache: "no-store"
   };
 
+  const hostname = new URL(url).hostname;
+  const isLoopback = hostname === "127.0.0.1" || hostname === "localhost" || hostname === "[::1]";
+  if (isLoopback) {
+    try {
+      return await fetch(url, { ...options, targetAddressSpace: "loopback" });
+    } catch {
+      return await fetch(url, options);
+    }
+  }
+
   try {
-    return await fetch(url, { ...options, targetAddressSpace: "loopback" });
+    return await fetch(url, { ...options, targetAddressSpace: "local" });
   } catch {
     return await fetch(url, options);
   }
