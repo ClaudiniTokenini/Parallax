@@ -63,11 +63,18 @@ export default async function OverviewPage() {
 }
 
 function shortLabel(value: string): string {
+  if (/not in yet/i.test(value)) return "Not in yet";
+  if (/No recent activity/i.test(value)) return "No activity";
   if (/low recovery/i.test(value)) return "Low recovery";
   if (/solid recovery/i.test(value)) return "Solid recovery";
   if (/steady recovery/i.test(value)) return "Steady recovery";
   if (/low recent/i.test(value)) return "Low activity";
   if (/Recent activity/i.test(value)) return "Recent activity";
-  if (/Moderate/i.test(value)) return "Moderate activity";
+  if (/Moderate activity/i.test(value)) return "Moderate activity";
+  if (/Active stretch/i.test(value)) return "Active stretch";
+  if (/Steady steps/i.test(value)) return "Steady steps";
+  if (/Moderate steps/i.test(value)) return "Moderate steps";
+  if (/Quiet step/i.test(value)) return "Quiet steps";
+  if (/Sessions in the import/i.test(value)) return "Sessions logged";
   return value;
 }
