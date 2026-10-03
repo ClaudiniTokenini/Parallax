@@ -5,7 +5,7 @@ import { getMeta } from "./db";
 import type { DataSource, Insight, OverviewPayload, RechargeNight } from "./types";
 
 const DISCLAIMER =
-  "Browsing protection plus local Polar or demo health data. This is not a mental-health assessment.";
+  "Browsing protection plus local health data. This is not a mental-health assessment.";
 
 function rechargeScore(night: RechargeNight | undefined): number | null {
   if (!night) return null;

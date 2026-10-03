@@ -1,5 +1,5 @@
 import { preflight, withCors } from "@/lib/cors";
-import { deleteDbFile, getDb } from "@/lib/db";
+import { wipeDb } from "@/lib/db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,7 +9,11 @@ export function OPTIONS(request: Request) {
 }
 
 export function POST(request: Request) {
-  deleteDbFile();
-  getDb();
-  return withCors(request, { ok: true, reset: true });
+  try {
+    wipeDb();
+    return withCors(request, { ok: true, reset: true });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Reset failed";
+    return withCors(request, { ok: false, error: message }, 500);
+  }
 }

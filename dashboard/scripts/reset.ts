@@ -1,4 +1,4 @@
-import { deleteDbFile, getDbPath } from "../src/lib/db";
+import { getDbPath, wipeDb } from "../src/lib/db";
 
-deleteDbFile();
-console.log(`Removed ${getDbPath()}`);
+wipeDb();
+console.log(`Wiped ${getDbPath()}`);

@@ -20,7 +20,12 @@ CREATE TABLE IF NOT EXISTS sleep_nights (
   duration_seconds INTEGER NOT NULL,
   sleep_start TEXT,
   sleep_end TEXT,
-  source TEXT NOT NULL
+  source TEXT NOT NULL,
+  score REAL,
+  rem_seconds INTEGER,
+  deep_seconds INTEGER,
+  light_seconds INTEGER,
+  efficiency_percent REAL
 );
 
 CREATE TABLE IF NOT EXISTS exercises (
@@ -30,6 +35,23 @@ CREATE TABLE IF NOT EXISTS exercises (
   sport TEXT,
   calories INTEGER,
   cardio_load REAL,
+  source TEXT NOT NULL,
+  hr_avg INTEGER,
+  hr_max INTEGER,
+  cardio_load_label TEXT,
+  distance_meters REAL,
+  name TEXT,
+  hr_cap INTEGER,
+  zone_low_seconds INTEGER,
+  zone_mid_seconds INTEGER,
+  zone_high_seconds INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS daily_activity (
+  date TEXT PRIMARY KEY,
+  step_count INTEGER NOT NULL,
+  steps_distance REAL,
+  calories INTEGER,
   source TEXT NOT NULL
 );
 

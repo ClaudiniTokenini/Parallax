@@ -78,6 +78,10 @@ function seedDigital(): void {
 
 function seedHealth(): void {
   const db = getDb();
+  db.prepare("DELETE FROM sleep_nights").run();
+  db.prepare("DELETE FROM exercises").run();
+  db.prepare("DELETE FROM recharge_nights").run();
+  db.prepare("DELETE FROM daily_activity").run();
   const insertSleep = db.prepare(
     `INSERT OR REPLACE INTO sleep_nights
       (date, duration_seconds, sleep_start, sleep_end, source)
