@@ -1,7 +1,37 @@
 const API_BASES = ["http://127.0.0.1:8000", "http://localhost:8000"];
 
 let cachedApiBase = null;
+const CLASSIFICATION_SCHEMA = {
+  type: "json_schema",
+  json_schema: {
+    name: "post_classification",
+    strict: true,
+    schema: {
+      type: "object",
+      properties: {
+        is_negative: {
+          type: "boolean",
+          description:
+            "Czy post zawiera negatywny content, który powinien zostać ukryty przed użytkownikiem."
+        }
+      },
+      required: ["is_negative"],
+      additionalProperties: false
+    }
+  }
+};
+
+const SYSTEM_PROMPT = `You classify the emotional tone of social media posts.
+Set is_negative=true if the post has a negative tone: sad, angry, scary, aggressive, violent, war-related, hateful, depressing, gloomy, outraged, insulting, anxious, or emotionally draining.
+Set is_negative=false only when the post is clearly positive, neutral, informational, or light humor.
+If unsure, set is_negative=true.`;
+
+const DASHBOARD_BASE = "http://127.0.0.1:3000";
+
+let cachedModelId = null;
+let cachedBaseUrl = null;
 let queue = Promise.resolve();
+let dashboardLastError = "";
 let contentStatus = {
   ok: false,
   postsFound: 0,
@@ -40,6 +70,26 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
 
+  if (message?.type === "RECORD_EVENT") {
+    enqueue(() => ingestDashboardEvent(message))
+      .then((result) => sendResponse(result))
+      .catch((error) => {
+        dashboardLastError = String(error?.message || error);
+        console.warn("[Parallax] dashboard ingest failed", error);
+        sendResponse({ ok: false, error: dashboardLastError });
+      });
+    return true;
+  }
+
+  if (message?.type === "PING_DASHBOARD") {
+    pingDashboard()
+      .then(sendResponse)
+      .catch((error) =>
+        sendResponse({ ok: false, error: String(error?.message || error) })
+      );
+    return true;
+  }
+
   if (message?.type === "CONTENT_STATUS") {
     contentStatus = {
       ok: true,
@@ -54,7 +104,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   if (message?.type === "GET_RUNTIME_STATE") {
-    sendResponse({ ok: true, contentStatus });
+    sendResponse({ ok: true, contentStatus, dashboardLastError, dashboardBase: DASHBOARD_BASE });
     return false;
   }
 
@@ -195,6 +245,40 @@ async function classifyPost(text) {
   const isNegative = Boolean(payload.isNegative ?? payload.is_negative);
   console.info("[Parallax] api", { isNegative });
   return { ok: true, isNegative };
+}
+
+async function ingestDashboardEvent(message) {
+  const payload = {
+    eventType: message.eventType,
+    platform: message.platform || "facebook",
+    postId: message.postId,
+    isNegative: message.isNegative,
+    occurredAt: message.occurredAt || new Date().toISOString()
+  };
+
+  const response = await fetchLoopback(`${DASHBOARD_BASE}/api/events`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    const details = await response.text().catch(() => "");
+    throw new Error(`Dashboard ingest failed (${response.status}): ${details.slice(0, 160)}`);
+  }
+
+  dashboardLastError = "";
+  return response.json();
+}
+
+async function pingDashboard() {
+  const response = await fetchLoopback(`${DASHBOARD_BASE}/api/health`, { method: "GET" });
+  if (!response.ok) {
+    throw new Error(`Dashboard offline (${response.status})`);
+  }
+  const payload = await response.json();
+  dashboardLastError = "";
+  return { ok: true, ...payload, baseUrl: DASHBOARD_BASE };
 }
 
 async function bumpStat(key) {

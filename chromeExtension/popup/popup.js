@@ -1,13 +1,15 @@
 const llmStatusEl = document.getElementById("llm-status");
 const fbStatusEl = document.getElementById("fb-status");
+const dashboardStatusEl = document.getElementById("dashboard-status");
 const dashboardBtn = document.getElementById("dashboard-btn");
 const connectBtn = document.getElementById("connect-btn");
 const apiUrlInput = document.getElementById("api-url");
+const DASHBOARD_URL = "http://127.0.0.1:3000";
 
 const DEFAULT_API = "http://127.0.0.1:8000";
 
 dashboardBtn.addEventListener("click", () => {
-  chrome.tabs.create({ url: chrome.runtime.getURL("dashboard.html") });
+  chrome.tabs.create({ url: DASHBOARD_URL });
 });
 
 chrome.storage.local.get({ apiBaseUrl: DEFAULT_API }, (stored) => {

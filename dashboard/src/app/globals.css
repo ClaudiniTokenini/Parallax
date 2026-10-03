@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+:root {
+  --cream: #fbf7f1;
+  --ink: #1d1a16;
+  --muted: #7a746b;
+  --lilac: #cbb8f3;
+  --lilac-deep: #8d74d6;
+  --sun: #f6d35c;
+  --moon: #b79aeb;
+}
+
+html,
+body {
+  min-height: 100%;
+  background: var(--cream);
+  color: var(--ink);
+}
+
+body {
+  font-family: var(--font-outfit), system-ui, sans-serif;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.serif {
+  font-family: var(--font-fraunces), Georgia, serif;
+}
