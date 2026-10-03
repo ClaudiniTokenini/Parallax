@@ -23,10 +23,15 @@ export async function POST(request: Request) {
   }
 
   const auth = userFromDeviceRequest(request, parsed.pairingToken);
-  if (auth.invalidToken || !auth.user) {
+  if (auth.needsPairing || !auth.user) {
     return withCors(
       request,
-      { ok: false, error: "Unknown pairing code. Copy it from Settings." },
+      {
+        ok: false,
+        error: auth.needsPairing
+          ? "Paste the pairing code from Settings for this account."
+          : "Unknown pairing code. Copy it from Settings."
+      },
       401
     );
   }

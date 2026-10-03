@@ -74,7 +74,7 @@ export function SettingsActions() {
         <button
           type="button"
           disabled={busy}
-          onClick={() => post("/api/reset", "Local database wiped.")}
+          onClick={() => post("/api/reset", "Local data for this profile wiped.")}
           className="rounded-full bg-[#1d1a16] px-5 py-2 text-sm font-medium text-[#fbf7f1] disabled:opacity-50"
         >
           Wipe local data

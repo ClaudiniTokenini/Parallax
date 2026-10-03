@@ -1,4 +1,4 @@
-import { getRequestUser, renameUser } from "@/lib/auth";
+import { getSessionUser, renameUser } from "@/lib/auth";
 import { preflight, withCors } from "@/lib/cors";
 
 export const runtime = "nodejs";
@@ -11,7 +11,8 @@ export function OPTIONS(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as { displayName?: string };
-    const user = await getRequestUser();
+    const user = await getSessionUser();
+    if (!user) return withCors(request, { ok: false, error: "Sign in first." }, 401);
     const updated = renameUser(user.id, String(body.displayName || ""));
     return withCors(request, { ok: true, displayName: updated.displayName });
   } catch (error) {

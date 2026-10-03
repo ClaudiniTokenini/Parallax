@@ -254,7 +254,7 @@ export function getPhysicalPayload(userId?: string): PhysicalPayload {
 
   return {
     dataSource: (getMeta("data_source") as DataSource | null) ?? null,
-    lastPolarSync: user.lastHealthImport ?? getMeta("last_polar_sync"),
+    lastPolarSync: user.lastHealthImport,
     hoursSinceWorkout: lastWorkout ? hoursBetween(lastWorkout.startTime) : null,
     lastWorkout,
     sleepNights,
@@ -298,7 +298,7 @@ export function getSettingsPayload(userId?: string): SettingsPayload {
   return {
     dataSource: (getMeta("data_source") as DataSource | null) ?? null,
     lastExtensionEvent: user.lastExtensionEvent,
-    lastPolarSync: user.lastHealthImport ?? getMeta("last_polar_sync"),
+    lastPolarSync: user.lastHealthImport,
     polarConnected: Boolean(polar),
     polarUserId: polar?.user_id ?? null,
     polarConfigured: Boolean(process.env.POLAR_CLIENT_ID && process.env.POLAR_CLIENT_SECRET),
@@ -323,6 +323,8 @@ export function getSettingsPayload(userId?: string): SettingsPayload {
         .get(id) as { count: number }
     ).count,
     displayName: user.displayName,
+    username: user.username,
+    hasPassword: user.hasPassword,
     pairingToken: user.pairingToken,
     userId: user.id
   };

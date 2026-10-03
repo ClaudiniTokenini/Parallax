@@ -1,6 +1,5 @@
 import fs from "node:fs";
 import path from "node:path";
-import crypto from "node:crypto";
 import Database from "better-sqlite3";
 
 const DATA_DIR = path.join(process.cwd(), "data");
@@ -36,21 +35,39 @@ function tableExists(database: Database.Database, table: string): boolean {
   return Boolean(row);
 }
 
-function ensureSoloUserId(database: Database.Database): string {
+function ensureSoloUserId(database: Database.Database): string | null {
   const existing = database.prepare("SELECT id FROM users ORDER BY created_at LIMIT 1").get() as
     | { id: string }
     | undefined;
-  if (existing) return existing.id;
+  return existing?.id ?? null;
+}
 
-  const id = crypto.randomUUID();
-  const token = `plx_${crypto.randomBytes(16).toString("hex")}`;
-  database
-    .prepare(
-      `INSERT INTO users (id, display_name, pairing_token, created_at)
-       VALUES (?, 'You', ?, ?)`
-    )
-    .run(id, token, new Date().toISOString());
-  return id;
+function addAuthColumns(database: Database.Database): void {
+  if (!tableExists(database, "users")) return;
+  const columns = tableColumns(database, "users");
+  if (!columns.has("username")) database.exec("ALTER TABLE users ADD COLUMN username TEXT");
+  if (!columns.has("password_hash")) database.exec("ALTER TABLE users ADD COLUMN password_hash TEXT");
+  database.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users (username)");
+  const rows = database
+    .prepare("SELECT id, display_name, username FROM users")
+    .all() as Array<{ id: string; display_name: string; username: string | null }>;
+  for (const row of rows) {
+    if (row.username) continue;
+    const base =
+      row.display_name
+        .toLowerCase()
+        .replace(/[^a-z0-9_]/g, "")
+        .slice(0, 16) || `user${row.id.slice(0, 6)}`;
+    let candidate = base.length >= 3 ? base : `user${row.id.slice(0, 6)}`;
+    let n = 2;
+    while (
+      database.prepare("SELECT id FROM users WHERE username = ? AND id != ?").get(candidate, row.id)
+    ) {
+      candidate = `${base}${n}`.slice(0, 20);
+      n += 1;
+    }
+    database.prepare("UPDATE users SET username = ? WHERE id = ?").run(candidate, row.id);
+  }
 }
 
 function addUserIdColumn(database: Database.Database, table: string, userId: string): void {
@@ -188,15 +205,113 @@ function migrateSchema(database: Database.Database): void {
     }
   }
 
+  addAuthColumns(database);
   const userId = ensureSoloUserId(database);
-  rebuildPostEvents(database, userId);
-  for (const table of ["sleep_nights", "exercises", "daily_activity", "recharge_nights", "post_events"]) {
-    addUserIdColumn(database, table, userId);
+  if (userId) {
+    rebuildPostEvents(database, userId);
+    for (const table of ["sleep_nights", "exercises", "daily_activity", "recharge_nights", "post_events"]) {
+      addUserIdColumn(database, table, userId);
+    }
   }
+  rebuildUserKeyedTable(database, "sleep_nights", ["user_id", "date"], `
+    CREATE TABLE sleep_nights_v2 (
+      date TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      duration_seconds INTEGER NOT NULL,
+      sleep_start TEXT,
+      sleep_end TEXT,
+      source TEXT NOT NULL,
+      score REAL,
+      rem_seconds INTEGER,
+      deep_seconds INTEGER,
+      light_seconds INTEGER,
+      efficiency_percent REAL,
+      PRIMARY KEY (user_id, date)
+    )
+  `);
+  rebuildUserKeyedTable(database, "exercises", ["user_id", "polar_id"], `
+    CREATE TABLE exercises_v2 (
+      polar_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      start_time TEXT NOT NULL,
+      duration_seconds INTEGER NOT NULL,
+      sport TEXT,
+      calories INTEGER,
+      cardio_load REAL,
+      source TEXT NOT NULL,
+      hr_avg INTEGER,
+      hr_max INTEGER,
+      cardio_load_label TEXT,
+      distance_meters REAL,
+      name TEXT,
+      hr_cap INTEGER,
+      zone_low_seconds INTEGER,
+      zone_mid_seconds INTEGER,
+      zone_high_seconds INTEGER,
+      PRIMARY KEY (user_id, polar_id)
+    )
+  `);
+  rebuildUserKeyedTable(database, "daily_activity", ["user_id", "date"], `
+    CREATE TABLE daily_activity_v2 (
+      date TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      step_count INTEGER NOT NULL,
+      steps_distance REAL,
+      calories INTEGER,
+      source TEXT NOT NULL,
+      PRIMARY KEY (user_id, date)
+    )
+  `);
+  rebuildUserKeyedTable(database, "recharge_nights", ["user_id", "date"], `
+    CREATE TABLE recharge_nights_v2 (
+      date TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      ans_charge REAL,
+      status TEXT,
+      source TEXT NOT NULL,
+      PRIMARY KEY (user_id, date)
+    )
+  `);
   database.exec(
     "CREATE INDEX IF NOT EXISTS idx_post_events_user_occurred ON post_events (user_id, occurred_at)"
   );
   rebuildMentalDaily(database);
+}
+
+function tablePrimaryKey(database: Database.Database, table: string): string[] {
+  return (
+    database.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string; pk: number }>
+  )
+    .filter((column) => column.pk > 0)
+    .sort((a, b) => a.pk - b.pk)
+    .map((column) => column.name);
+}
+
+function rebuildUserKeyedTable(
+  database: Database.Database,
+  table: string,
+  expectedPk: string[],
+  createSql: string
+): void {
+  if (!tableExists(database, table)) return;
+  const currentPk = tablePrimaryKey(database, table);
+  if (
+    currentPk.length === expectedPk.length &&
+    expectedPk.every((name, index) => currentPk[index] === name)
+  ) {
+    return;
+  }
+
+  const next = `${table}_v2`;
+  database.exec(createSql);
+  const currentCols = [...tableColumns(database, table)];
+  const nextCols = [...tableColumns(database, next)];
+  const shared = nextCols.filter((column) => currentCols.includes(column));
+  if (shared.length) {
+    const list = shared.join(", ");
+    database.exec(`INSERT OR IGNORE INTO ${next} (${list}) SELECT ${list} FROM ${table}`);
+  }
+  database.exec(`DROP TABLE ${table}; ALTER TABLE ${next} RENAME TO ${table};`);
 }
 
 export function getDbPath(): string {
@@ -218,6 +333,25 @@ const WIPE_TABLES = [
   "polar_accounts",
   "meta"
 ];
+
+const USER_DATA_TABLES = [
+  "post_events",
+  "mental_daily",
+  "sleep_nights",
+  "exercises",
+  "daily_activity",
+  "recharge_nights"
+];
+
+export function wipeUserData(userId: string): void {
+  const database = getDb();
+  database.transaction(() => {
+    for (const table of USER_DATA_TABLES) {
+      if (!tableExists(database, table)) continue;
+      database.prepare(`DELETE FROM ${table} WHERE user_id = ?`).run(userId);
+    }
+  })();
+}
 
 export function wipeDb(): void {
   const database = getDb();
