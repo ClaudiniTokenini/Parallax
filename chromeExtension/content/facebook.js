@@ -14,6 +14,7 @@
   const HOST_ATTR = "data-parallax-id";
   const BADGE_ATTR = "data-parallax-badge";
 
+  const CACHE_KEY = "plxFbClassified";
   const classified = new Map();
   const inFlight = new Set();
   const failedUntil = new Map();
@@ -27,10 +28,12 @@
   let overlaySyncStarted = false;
   let enabled = true;
   let badgeLabel = null;
+  let persistTimer = 0;
 
-  chrome.storage.local.get({ enabled: true }, (stored) => {
+  chrome.storage.local.get({ enabled: true, [CACHE_KEY]: {} }, (stored) => {
     enabled = stored.enabled !== false;
-    applyEnabledState(false);
+    hydrateClassified(stored[CACHE_KEY]);
+    applyEnabledState(true);
   });
 
   chrome.storage.onChanged.addListener((changes, area) => {
@@ -63,7 +66,6 @@
   observeFeed();
   whenReady(() => {
     ensureBadge();
-    if (enabled) scanFeed();
   });
 
   function whenReady(fn) {
@@ -211,7 +213,7 @@
 
       lastError = "";
       failedUntil.delete(id);
-      classified.set(id, { isNegative: Boolean(response.isNegative), revealed: false });
+      rememberClassified(id, { isNegative: Boolean(response.isNegative), revealed: false });
       recordEvent("classified", id, Boolean(response.isNegative));
       log(`result negative=${Boolean(response.isNegative)}`, text.slice(0, 80));
       if (response.isNegative) {
@@ -281,7 +283,7 @@
       overlays.set(id, rec);
       const prev = classified.get(id) || { isNegative: true, revealed: false };
       if (!prev.countedHidden) {
-        classified.set(id, { ...prev, isNegative: true, countedHidden: true });
+        rememberClassified(id, { ...prev, isNegative: true, countedHidden: true });
         recordStat("postsHidden");
         recordEvent("hidden", id, true);
       }
@@ -460,7 +462,7 @@
     const rec = overlays.get(id);
     if (markRevealed) {
       const prev = classified.get(id) || { isNegative: true, revealed: false };
-      classified.set(id, { ...prev, revealed: true });
+      rememberClassified(id, { ...prev, revealed: true });
       recordEvent("revealed", id, true);
     }
 
@@ -620,6 +622,26 @@
         void chrome.runtime.lastError;
       }
     );
+  }
+
+  function hydrateClassified(cache) {
+    for (const [id, state] of Object.entries(cache || {})) {
+      if (!id || !state || typeof state !== "object") continue;
+      classified.set(id, state);
+    }
+  }
+
+  function rememberClassified(id, state) {
+    classified.set(id, state);
+    persistClassified();
+  }
+
+  function persistClassified() {
+    window.clearTimeout(persistTimer);
+    persistTimer = window.setTimeout(() => {
+      const entries = [...classified.entries()].slice(-500);
+      chrome.storage.local.set({ [CACHE_KEY]: Object.fromEntries(entries) });
+    }, 200);
   }
 
   function log(...args) {

@@ -6,19 +6,26 @@ const llmStatusEl = document.getElementById("llm-status");
 const fbStatusEl = document.getElementById("fb-status");
 const dashboardStatusEl = document.getElementById("dashboard-status");
 const dashboardBtn = document.getElementById("dashboard-btn");
+const pairForm = document.getElementById("pair-form");
 const pairBtn = document.getElementById("pair-btn");
 const pairingInput = document.getElementById("pairing-token");
 const enabledToggle = document.getElementById("enabled-toggle");
 const toggleLabel = document.getElementById("toggle-label");
+
+let saveTimer = 0;
+let loadedPairingToken = "";
 
 dashboardBtn.addEventListener("click", () => {
   openDashboard();
 });
 
 chrome.storage.local.get({ enabled: true, pairingToken: "" }, (stored) => {
-  pairingInput.value = stored.pairingToken || "";
+  loadedPairingToken = String(stored.pairingToken || "").trim();
+  pairingInput.value = loadedPairingToken;
   setToggle(stored.enabled !== false);
   pingApi();
+  pingDashboard();
+  pingFeed();
 });
 
 enabledToggle.addEventListener("change", async () => {
@@ -28,31 +35,20 @@ enabledToggle.addEventListener("change", async () => {
   chrome.runtime.sendMessage({ type: "SET_ENABLED", enabled }, () => {
     void chrome.runtime.lastError;
   });
-  pingFacebook();
+  pingFeed();
 });
 
-pairBtn.addEventListener("click", async () => {
-  const pairingToken = String(pairingInput.value || "").trim();
-  pairingInput.value = pairingToken;
-  pairBtn.disabled = true;
-  try {
-    await chrome.permissions.request({
-      origins: [
-        `${new URL(DEFAULT_DASHBOARD).origin}/*`,
-        `${new URL(DEFAULT_API).origin}/*`,
-        "http://*/*"
-      ]
-    });
-  } catch {
-    // Permission may already be granted.
-  }
-  await chrome.storage.local.set({ pairingToken });
-  pairBtn.disabled = false;
-  pingDashboard();
-  pingApi();
+pairingInput.addEventListener("input", () => {
+  window.clearTimeout(saveTimer);
+  saveTimer = window.setTimeout(() => {
+    void persistPairingToken(pairingInput.value, { silent: true });
+  }, 250);
 });
 
-pingFeed();
+pairForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  void persistPairingToken(pairingInput.value, { silent: false });
+});
 
 function openDashboard() {
   chrome.runtime.sendMessage({ type: "PING_DASHBOARD" }, (response) => {
@@ -66,7 +62,51 @@ function openDashboard() {
 
 function setToggle(enabled) {
   enabledToggle.checked = enabled;
-  toggleLabel.textContent = enabled ? "On — blur negative posts" : "Off — Facebook is unfiltered";
+  toggleLabel.textContent = enabled ? "On — blur negative posts" : "Off — feed is unfiltered";
+}
+
+async function persistPairingToken(raw, { silent }) {
+  const next = String(raw || "").trim();
+  pairingInput.value = next || loadedPairingToken;
+
+  if (!next) {
+    pairingInput.value = loadedPairingToken;
+    if (!silent) pingDashboard();
+    return;
+  }
+
+  loadedPairingToken = next;
+  await chrome.storage.local.set({ pairingToken: next });
+
+  if (silent) return;
+
+  pairBtn.disabled = true;
+  try {
+    const origins = permissionOrigins();
+    const already = await chrome.permissions.contains({ origins }).catch(() => false);
+    if (!already) {
+      await chrome.permissions.request({
+        origins: [...origins, "http://*/*"]
+      }).catch(() => {});
+    }
+  } catch {
+    // Permission may already be granted.
+  }
+  pairBtn.disabled = false;
+  pingDashboard();
+  pingApi();
+}
+
+function permissionOrigins() {
+  const origins = [];
+  for (const value of [DEFAULT_DASHBOARD, DEFAULT_API]) {
+    try {
+      origins.push(`${new URL(value).origin}/*`);
+    } catch {
+      // ignore invalid env URLs
+    }
+  }
+  return origins;
 }
 
 function pingApi() {
@@ -87,30 +127,6 @@ function pingApi() {
 }
 
 function pingFeed() {
-  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    const tab = tabs[0];
-    if (!tab?.id || !isSupportedFeedUrl(tab.url || "")) {
-      fbStatusEl.textContent = "Open Facebook or X/Twitter, then refresh the tab.";
-      return;
-    }
-
-    chrome.tabs.sendMessage(tab.id, { type: "PING_CONTENT" }, (response) => {
-      if (chrome.runtime.lastError || !response?.ok) {
-        fbStatusEl.textContent =
-          "Script not running. Click Reload on the extension, then refresh the tab.";
-        fbStatusEl.classList.add("err");
-        return;
-      }
-
-      const site = response.platform === "twitter" ? "X/Twitter" : "Facebook";
-      const errorSuffix = response.lastError ? ` · ${response.lastError}` : "";
-      fbStatusEl.textContent = `Active on ${site} · ${response.postsFound} posts found · ${response.postsScanned} classified${errorSuffix}`;
-      fbStatusEl.classList.add(response.lastError ? "err" : "ok");
-    })
-  })
-}
-
-function pingFacebook() {
   fbStatusEl.classList.remove("ok", "err");
   chrome.storage.local.get({ enabled: true }, (stored) => {
     if (stored.enabled === false) {
@@ -120,21 +136,22 @@ function pingFacebook() {
 
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       const tab = tabs[0];
-      if (!tab?.id || !isFacebookUrl(tab.url || "")) {
-        fbStatusEl.textContent = "Open Facebook, then refresh the tab.";
+      if (!tab?.id || !isSupportedFeedUrl(tab.url || "")) {
+        fbStatusEl.textContent = "Open Facebook or X/Twitter, then refresh the tab.";
         return;
       }
 
       chrome.tabs.sendMessage(tab.id, { type: "PING_CONTENT" }, (response) => {
         if (chrome.runtime.lastError || !response?.ok) {
           fbStatusEl.textContent =
-            "Script not running. Reload the extension, then refresh Facebook.";
+            "Script not running. Click Reload on the extension, then refresh the tab.";
           fbStatusEl.classList.add("err");
           return;
         }
 
+        const site = response.platform === "twitter" ? "X/Twitter" : "Facebook";
         const errorSuffix = response.lastError ? ` · ${response.lastError}` : "";
-        fbStatusEl.textContent = `Watching Facebook · ${response.postsFound} posts · ${response.postsScanned} classified${errorSuffix}`;
+        fbStatusEl.textContent = `Active on ${site} · ${response.postsFound} posts found · ${response.postsScanned} classified${errorSuffix}`;
         fbStatusEl.classList.add(response.lastError ? "err" : "ok");
       });
     });
@@ -165,19 +182,6 @@ function pingDashboard() {
       : "Dashboard ready. Paste the pairing code from Settings.";
     dashboardStatusEl.classList.add("ok");
   });
-}
-
-function normalizeApiUrl(value) {
-  const trimmed = String(value || DEFAULT_API).trim().replace(/\/$/, "");
-  try {
-    const url = new URL(trimmed);
-    if (url.protocol !== "http:" && url.protocol !== "https:") {
-      throw new Error("Use http://");
-    }
-    return url.origin;
-  } catch {
-    return DEFAULT_API;
-  }
 }
 
 function isSupportedFeedUrl(url) {

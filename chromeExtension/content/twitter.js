@@ -14,6 +14,7 @@
   const HOST_ATTR = "data-parallax-id";
   const BADGE_ATTR = "data-parallax-badge";
 
+  const CACHE_KEY = "plxTwClassified";
   const classified = new Map();
   const inFlight = new Set();
   const failedUntil = new Map();
@@ -25,6 +26,26 @@
   let lastError = "";
   let badgeDismissed = false;
   let overlaySyncStarted = false;
+  let enabled = true;
+  let badgeLabel = null;
+  let persistTimer = 0;
+
+  chrome.storage.local.get({ enabled: true, [CACHE_KEY]: {} }, (stored) => {
+    enabled = stored.enabled !== false;
+    hydrateClassified(stored[CACHE_KEY]);
+    applyEnabledState(true);
+  });
+
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== "local") return;
+    if (changes.enabled) {
+      enabled = changes.enabled.newValue !== false;
+      applyEnabledState(true);
+    }
+    if (changes[CACHE_KEY]?.newValue) {
+      hydrateClassified(changes[CACHE_KEY].newValue);
+    }
+  });
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message?.type === "PING_CONTENT") {
@@ -32,7 +53,13 @@
       return false;
     }
     if (message?.type === "RESCAN") {
-      scanFeed();
+      if (enabled) scanFeed();
+      sendResponse(getContentStatus());
+      return false;
+    }
+    if (message?.type === "SET_ENABLED") {
+      enabled = message.enabled !== false;
+      applyEnabledState(true);
       sendResponse(getContentStatus());
       return false;
     }
@@ -44,7 +71,6 @@
   observeFeed();
   whenReady(() => {
     ensureBadge();
-    scanFeed();
   });
 
   function whenReady(fn) {
@@ -70,7 +96,28 @@
     });
   }
 
+  function applyEnabledState(rescan) {
+    updateBadgeText();
+    if (!enabled) {
+      pauseOverlays();
+      reportStatus();
+      return;
+    }
+    if (rescan) scanFeed();
+    reportStatus();
+  }
+
+  function pauseOverlays() {
+    for (const [id, rec] of [...overlays.entries()]) {
+      revealPost(rec?.article || rec?.cover, id, false);
+    }
+  }
+
   function scanFeed() {
+    if (!enabled) {
+      reportStatus();
+      return;
+    }
     const posts = findFeedPosts();
     lastFoundCount = posts.length;
     for (const post of posts) {
@@ -159,7 +206,8 @@
 
       lastError = "";
       failedUntil.delete(id);
-      classified.set(id, { isNegative: Boolean(response.isNegative), revealed: false });
+      rememberClassified(id, { isNegative: Boolean(response.isNegative), revealed: false });
+      recordEvent("classified", id, Boolean(response.isNegative));
       log(`result negative=${Boolean(response.isNegative)}`, text.slice(0, 80));
       if (response.isNegative) {
         const target = findArticleById(id) || resolveArticle(article, id);
@@ -209,8 +257,9 @@
       overlays.set(id, rec);
       const prev = classified.get(id) || { isNegative: true, revealed: false };
       if (!prev.countedHidden) {
-        classified.set(id, { ...prev, isNegative: true, countedHidden: true });
+        rememberClassified(id, { ...prev, isNegative: true, countedHidden: true });
         recordStat("postsHidden");
+        recordEvent("hidden", id, true);
       }
       log("hiding post", id);
     }
@@ -362,7 +411,8 @@
     const rec = overlays.get(id);
     if (markRevealed) {
       const prev = classified.get(id) || { isNegative: true, revealed: false };
-      classified.set(id, { ...prev, revealed: true });
+      rememberClassified(id, { ...prev, revealed: true });
+      recordEvent("revealed", id, true);
     }
 
     const nodes = [article, rec?.article, rec?.cover];
@@ -407,7 +457,8 @@
       "display:flex;align-items:center;gap:8px;background:#0c101c;color:#f4f7fb;border:1px solid #38d6c4;border-radius:999px;padding:8px 10px 8px 12px;font:600 12px/1.2 system-ui,'Segoe UI',sans-serif;box-shadow:0 8px 24px rgba(0,0,0,0.35);";
 
     const label = document.createElement("span");
-    label.textContent = "Parallax is scanning this feed";
+    badgeLabel = label;
+    label.textContent = enabled ? "Parallax is scanning this feed" : "Parallax is paused";
 
     const close = document.createElement("button");
     close.type = "button";
@@ -473,9 +524,18 @@
     return (hash >>> 0).toString(16);
   }
 
+  function updateBadgeText() {
+    if (badgeLabel) {
+      badgeLabel.textContent = enabled
+        ? "Parallax is scanning this feed"
+        : "Parallax is paused";
+    }
+  }
+
   function getContentStatus() {
     return {
       ok: true,
+      enabled,
       postsFound: lastFoundCount,
       postsScanned: classified.size,
       postsHidden: [...classified.values()].filter((state) => state.isNegative && !state.revealed)
@@ -495,6 +555,42 @@
     chrome.runtime.sendMessage({ type: "RECORD_STAT", key }, () => {
       void chrome.runtime.lastError;
     });
+  }
+
+  function recordEvent(eventType, postId, isNegative) {
+    chrome.runtime.sendMessage(
+      {
+        type: "RECORD_EVENT",
+        eventType,
+        platform: "twitter",
+        postId,
+        isNegative,
+        occurredAt: new Date().toISOString()
+      },
+      () => {
+        void chrome.runtime.lastError;
+      }
+    );
+  }
+
+  function hydrateClassified(cache) {
+    for (const [id, state] of Object.entries(cache || {})) {
+      if (!id || !state || typeof state !== "object") continue;
+      classified.set(id, state);
+    }
+  }
+
+  function rememberClassified(id, state) {
+    classified.set(id, state);
+    persistClassified();
+  }
+
+  function persistClassified() {
+    window.clearTimeout(persistTimer);
+    persistTimer = window.setTimeout(() => {
+      const entries = [...classified.entries()].slice(-500);
+      chrome.storage.local.set({ [CACHE_KEY]: Object.fromEntries(entries) });
+    }, 200);
   }
 
   function log(...args) {

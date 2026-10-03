@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 export function SettingsProfile({
   displayName,
@@ -15,6 +15,7 @@ export function SettingsProfile({
   const [token, setToken] = useState(pairingToken);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const tokenRef = useRef<HTMLInputElement>(null);
 
   async function saveName() {
     setBusy(true);
@@ -54,13 +55,44 @@ export function SettingsProfile({
     }
   }
 
-  async function copyToken() {
-    try {
-      await navigator.clipboard.writeText(token);
-      setMessage("Pairing code copied.");
-    } catch {
-      setMessage("Copy the code manually.");
+  function copyToken() {
+    const value = String(token || "");
+    const field = tokenRef.current;
+    if (!value) {
+      setMessage("Nothing to copy yet.");
+      return;
     }
+
+    field?.focus();
+    field?.select();
+    field?.setSelectionRange(0, value.length);
+
+    let copied = false;
+    try {
+      copied = document.execCommand("copy");
+    } catch {
+      copied = false;
+    }
+
+    if (copied) {
+      setMessage("Pairing code copied.");
+      return;
+    }
+
+    const writeText = navigator.clipboard?.writeText?.bind(navigator.clipboard);
+    if (writeText) {
+      void writeText(value).then(
+        () => setMessage("Pairing code copied."),
+        () => {
+          field?.select();
+          setMessage("Code selected — press Ctrl+C.");
+        }
+      );
+      return;
+    }
+
+    field?.select();
+    setMessage("Code selected — press Ctrl+C.");
   }
 
   return (
@@ -81,8 +113,16 @@ export function SettingsProfile({
       </label>
 
       <div className="mt-4">
-        <p className="text-sm text-[#7a746b]">Pairing code</p>
-        <code className="mt-2 block break-all rounded-2xl bg-[#fbf7f1] px-4 py-3 text-sm">{token}</code>
+        <label className="block text-sm text-[#7a746b]">
+          Pairing code
+          <input
+            ref={tokenRef}
+            readOnly
+            value={token}
+            onFocus={(event) => event.currentTarget.select()}
+            className="mt-2 w-full rounded-2xl border-0 bg-[#fbf7f1] px-4 py-3 font-mono text-sm text-[#1d1a16] outline-none"
+          />
+        </label>
       </div>
 
       <div className="mt-5 flex flex-wrap gap-3">
@@ -97,7 +137,10 @@ export function SettingsProfile({
         <button
           type="button"
           disabled={busy}
-          onClick={() => void copyToken()}
+          onPointerDown={(event) => {
+            event.preventDefault();
+            copyToken();
+          }}
           className="rounded-full bg-[#efe8ff] px-5 py-2 text-sm font-medium disabled:opacity-50"
         >
           Copy code
