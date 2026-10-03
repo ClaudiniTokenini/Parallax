@@ -101,6 +101,7 @@ Decisions that used to live in the todo list below are written up here:
 - [Polar](../docs/POLAR.md)
 - [Insight engine](../docs/INSIGHT-ENGINE.md)
 - [How to run](../README.md)
+- [Packaging for end users](../docs/PACKAGING.md)
 
 ## Mockups
 Mockups for the dashboard are located within `/mockups` directory.

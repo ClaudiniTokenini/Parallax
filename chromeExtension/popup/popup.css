@@ -1,5 +1,10 @@
 :root {
-  color-scheme: dark;
+  --cream: #fbf7f1;
+  --ink: #29232d;
+  --muted: #7a746b;
+  --lilac: #cbb8f3;
+  --lilac-soft: #efe8ff;
+  --sun: #f3e074;
 }
 
 * {
@@ -8,108 +13,188 @@
 
 body {
   margin: 0;
-  min-width: 280px;
-  font-family: system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  background: #0c101c;
-  color: #f4f7fb;
+  min-width: 320px;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  background: var(--cream);
+  color: var(--ink);
 }
 
 .card {
-  padding: 16px;
+  padding: 28px 24px 24px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  align-items: stretch;
+  gap: 12px;
 }
 
 .brand {
   display: flex;
+  flex-direction: column;
   align-items: center;
   gap: 10px;
 }
 
-.logo {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+.mark {
+  width: 44px;
+  height: 34px;
 }
 
-h1 {
-  margin: 0;
-  font-size: 18px;
-  letter-spacing: -0.03em;
+.wordmark {
+  height: 18px;
+  width: auto;
 }
 
-.brand p {
-  margin: 2px 0 0;
-  color: #9aa7b8;
-  font-size: 12px;
+.tagline {
+  margin: 0 0 8px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .status {
   margin: 0;
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: #171d2c;
-  color: #c5d0dc;
-  font-size: 12px;
+  padding: 12px 16px;
+  border-radius: 16px;
+  background: var(--lilac-soft);
+  color: #5c5663;
+  font-size: 13px;
+  line-height: 1.4;
 }
 
 .status.ok {
-  color: #7ee0d2;
+  color: #3d3550;
 }
 
-.field {
+.status.err {
+  background: #f4e4d8;
+  color: #8a4b32;
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 10px 0 4px;
+  padding: 4px 2px;
+  cursor: pointer;
+}
+
+.toggle span {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  color: #9aa7b8;
+  gap: 2px;
+}
+
+.toggle strong {
+  font-size: 14px;
+}
+
+.toggle small {
+  color: var(--muted);
   font-size: 12px;
 }
 
-#api-url {
+.toggle input {
   appearance: none;
-  border: 1px solid #2a3347;
-  border-radius: 8px;
-  padding: 8px 10px;
-  background: #0c101c;
-  color: #f4f7fb;
-  font-size: 13px;
+  width: 48px;
+  height: 28px;
+  margin: 0;
+  border-radius: 999px;
+  background: #ddd6cc;
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
 }
 
-#api-url:focus {
-  outline: 1px solid #38d6c4;
+.toggle input::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(41, 35, 45, 0.18);
+  transition: transform 0.18s ease;
+}
+
+.toggle input:checked {
+  background: var(--lilac);
+}
+
+.toggle input:checked::after {
+  transform: translateX(20px);
 }
 
 #dashboard-btn,
 #connect-btn {
   appearance: none;
   border: 0;
-  border-radius: 10px;
-  padding: 10px 12px;
-  font-weight: 700;
-  font-size: 14px;
+  border-radius: 999px;
+  padding: 14px 16px;
+  font-size: 18px;
   cursor: pointer;
 }
 
 #dashboard-btn {
-  background: #38d6c4;
-  color: #08201c;
+  margin-top: 4px;
+  background: var(--lilac);
+  color: var(--ink);
+  font-family: "Playfair Display", Georgia, serif;
+  font-weight: 500;
 }
 
 #dashboard-btn:hover,
 #dashboard-btn:focus-visible {
-  background: #5ee4d4;
+  background: #d4c4f8;
   outline: none;
 }
 
+.advanced {
+  margin-top: 4px;
+}
+
+.advanced summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 10px 0 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+#api-url {
+  appearance: none;
+  border: 1px solid #e4ddd2;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 13px;
+}
+
+#api-url:focus {
+  outline: 1px solid var(--lilac);
+}
+
 #connect-btn.secondary {
-  background: #171d2c;
-  color: #7ee0d2;
-  border: 1px solid #38d6c4;
+  width: 100%;
+  background: var(--lilac-soft);
+  color: var(--ink);
+  font-size: 14px;
 }
 
 #connect-btn.secondary:hover,
 #connect-btn.secondary:focus-visible {
-  background: #1f2738;
+  background: #e6dcff;
   outline: none;
 }

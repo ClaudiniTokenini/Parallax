@@ -5,48 +5,56 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Parallax dashboard</title>
     <style>
-      :root {
-        color-scheme: dark;
-      }
       body {
         margin: 0;
         min-height: 100vh;
         display: grid;
         place-items: center;
-        font-family: system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        background: #0c101c;
-        color: #f4f7fb;
+        font-family: "Segoe UI", system-ui, sans-serif;
+        background: #fbf7f1;
+        color: #29232d;
       }
       main {
         width: min(520px, calc(100% - 32px));
-        padding: 28px;
-        border-radius: 20px;
-        background: #141a2a;
+        padding: 32px;
+        border-radius: 24px;
+        background: #fff;
+        text-align: center;
+      }
+      img.wordmark {
+        height: 18px;
+        margin-bottom: 16px;
       }
       h1 {
         margin: 0 0 8px;
+        font-family: Georgia, serif;
+        font-size: 32px;
       }
       p {
         margin: 0;
-        color: #9aa7b8;
+        color: #7a746b;
         line-height: 1.5;
       }
-      a {
-        color: #7ee0d2;
+      code {
+        font-size: 13px;
       }
     </style>
   </head>
   <body>
     <main>
-      <h1>Dashboard moved</h1>
+      <img class="wordmark" src="popup/assets/logo_text.svg" alt="PARALLAX" />
+      <h1>Start the local dashboard</h1>
       <p>
-        The local app now lives at
-        <a href="http://127.0.0.1:3000">http://127.0.0.1:3000</a>.
-        From the repo, run <code>cd dashboard</code> then <code>npm run dev</code>.
+        The extension opened this page because
+        <code>http://127.0.0.1:3000</code> is not running yet. In a terminal:
+        <br /><br />
+        <code>cd dashboard</code><br />
+        <code>npm install</code><br />
+        <code>npm run dev</code>
+        <br /><br />
+        Then click <strong>Show dashboard</strong> in the popup, or refresh this tab.
       </p>
     </main>
-    <script>
-      window.location.replace("http://127.0.0.1:3000");
-    </script>
+    <script src="dashboard.js"></script>
   </body>
 </html>

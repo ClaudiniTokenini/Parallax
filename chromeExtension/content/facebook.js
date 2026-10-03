@@ -25,6 +25,19 @@
   let lastError = "";
   let badgeDismissed = false;
   let overlaySyncStarted = false;
+  let enabled = true;
+  let badgeLabel = null;
+
+  chrome.storage.local.get({ enabled: true }, (stored) => {
+    enabled = stored.enabled !== false;
+    applyEnabledState(false);
+  });
+
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== "local" || !changes.enabled) return;
+    enabled = changes.enabled.newValue !== false;
+    applyEnabledState(true);
+  });
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message?.type === "PING_CONTENT") {
@@ -32,7 +45,13 @@
       return false;
     }
     if (message?.type === "RESCAN") {
-      scanFeed();
+      if (enabled) scanFeed();
+      sendResponse(getContentStatus());
+      return false;
+    }
+    if (message?.type === "SET_ENABLED") {
+      enabled = message.enabled !== false;
+      applyEnabledState(true);
       sendResponse(getContentStatus());
       return false;
     }
@@ -44,7 +63,7 @@
   observeFeed();
   whenReady(() => {
     ensureBadge();
-    scanFeed();
+    if (enabled) scanFeed();
   });
 
   function whenReady(fn) {
@@ -70,7 +89,28 @@
     });
   }
 
+  function applyEnabledState(rescan) {
+    updateBadgeText();
+    if (!enabled) {
+      pauseOverlays();
+      reportStatus();
+      return;
+    }
+    if (rescan) scanFeed();
+    reportStatus();
+  }
+
+  function pauseOverlays() {
+    for (const [id, rec] of [...overlays.entries()]) {
+      revealPost(rec?.article || rec?.cover, id, false);
+    }
+  }
+
   function scanFeed() {
+    if (!enabled) {
+      reportStatus();
+      return;
+    }
     const posts = findFeedPosts();
     lastFoundCount = posts.length;
     for (const post of posts) {
@@ -466,7 +506,8 @@
       "display:flex;align-items:center;gap:8px;background:#0c101c;color:#f4f7fb;border:1px solid #38d6c4;border-radius:999px;padding:8px 10px 8px 12px;font:600 12px/1.2 system-ui,'Segoe UI',sans-serif;box-shadow:0 8px 24px rgba(0,0,0,0.35);";
 
     const label = document.createElement("span");
-    label.textContent = "Parallax is scanning this feed";
+    badgeLabel = label;
+    label.textContent = enabled ? "Parallax is scanning this feed" : "Parallax is paused";
 
     const close = document.createElement("button");
     close.type = "button";
@@ -532,13 +573,23 @@
     return (hash >>> 0).toString(16);
   }
 
+  function updateBadgeText() {
+    if (badgeLabel) {
+      badgeLabel.textContent = enabled
+        ? "Parallax is scanning this feed"
+        : "Parallax is paused";
+    }
+  }
+
   function getContentStatus() {
     return {
       ok: true,
+      enabled,
       postsFound: lastFoundCount,
       postsScanned: classified.size,
-      postsHidden: [...classified.values()].filter((state) => state.isNegative && !state.revealed)
-        .length,
+      postsHidden: enabled
+        ? [...classified.values()].filter((state) => state.isNegative && !state.revealed).length
+        : 0,
       lastError
     };
   }
