@@ -109,6 +109,7 @@ export type Insight = {
   affirmation: string;
   recoveryLabel: string;
   activityLabel: string;
+  ruleId: string;
   signals: Record<string, number | null>;
 };
 
@@ -135,6 +136,7 @@ export type PhysicalPayload = {
   baselineSleepHours: number | null;
   averageSteps: number | null;
   lastSleepScore: number | null;
+  lastActivityDate: string | null;
 };
 
 export type MentalPlatformShare = {

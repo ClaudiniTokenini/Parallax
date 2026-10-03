@@ -1,50 +1,56 @@
 # Insight engine
 
-Deterministic rules. No ML. No medical diagnosis. Recalculated on every `GET /api/overview`.
+Deterministic if/then rules. No ML. No diagnosis. Recalculated on every Overview load and `GET /api/overview`.
 
-## Windows
+The engine builds **facts** from the last 3 days of feed events plus the local health ZIP, then walks a **priority list**. The first matching rule wins.
 
-| Window | Use |
-| --- | --- |
-| Last 3 days | Digital counts on Overview (blocked / revealed) |
-| Last 7 days | Recent workout volume |
-| Last 14 days | Personal baseline for rates and sleep |
-| Polar limits | Sleep 28 days, exercises 30 days |
+## Inputs
 
-A **baseline** is the user's own 14-day mean, not a population “healthy” number. If the 14-day window is empty, the engine falls back to the shorter window and a neutral headline.
+| Side | Window | Source |
+| --- | --- | --- |
+| Mental | Last 3 days vs 14-day mix | Extension `classified` / `hidden` / `revealed` |
+| Physical | Import stretch; “fresh” if the latest sleep, session, or step day is within 7 days | ZIP: sleep, workouts, steps, optional recharge / HR zones |
 
-## Signals
+Missing ZIP or missing feed does not crash the engine. That side is omitted and named in the supporting copy.
 
-Each signal is a number, then a delta vs baseline, clamped to a small range.
+An old Polar dump is treated as a **stretch recap**, not “you have not trained in 400 hours.” Wall-clock gaps only count when the latest health row is fresh.
 
-| Signal | Formula |
-| --- | --- |
-| `negativity_rate` | negative `classified` / all `classified` |
-| `reveal_rate` | `revealed` / `hidden` |
-| `sleep_hours` | mean sleep hours in the recent 3 nights vs 14-day mean |
-| `hours_since_workout` | now − last exercise start |
-| `workouts_7d` | count in 7 days vs (14-day count / 2) |
-| `recharge` | latest Nightly Recharge / ANS charge when present |
+## Facts
 
-Missing Polar/fixture health data does not crash the engine. Those signals are omitted and the headline leans on digital data.
+Mental:
 
-## Headlines
+- `heavyFeed` — negativity ≥ 50% (or clearly above the 14-day mix), or several blurs when classification rate is missing
+- `peeked` — you revealed ≥ 22% of blurred posts
+- `heldFilter` — posts were blurred and you mostly left them covered
+- `quietFeed` — negativity ≤ 25% and few blurs
+- `lighterThanUsual` — 3-day negativity is ≥ 8 points below the 14-day mix
 
-The worst one or two signals pick a headline:
+Physical:
 
-| Condition | Headline |
-| --- | --- |
-| Low recharge and stale workout | Take it easy today. |
-| High negativity and high reveal | Protect your attention today. |
-| Poor sleep and high digital load | Give your mind a quieter feed today. |
-| Good sleep, recent activity, low negativity | You have a solid baseline today. |
-| Default | Check in with both sides today. |
+- `shortSleep` — recent nights under 6.5h, or ≥ 10% below the stretch mean
+- `solidSleep` — recent nights ≥ 7h
+- `staleWorkout` — fresh data and the gap since the last session is long vs your own rhythm
+- `activeStretch` — a recent session, several sessions in the import, or ~7k+ steps/day
+- `tiredBody` — short sleep, stale session, low recharge, hot HR-zone block, or very low steps without movement
 
-Supporting copy names the inputs (blocked posts, revealed posts, last workout, sleep). It states that this is browsing protection and Polar/demo metrics, not a mental-health assessment.
+## Headlines (first match)
+
+| Rule | When | Headline |
+| --- | --- | --- |
+| `heavy-feed-tired-body` | Heavy feed and tired body | Give your mind a quieter feed today. |
+| `heavy-feed-peeked` | Heavy feed and you opened blurs | Protect your attention today. |
+| `heavy-feed-held` | Heavy feed and you left blurs covered | You let the filter hold today. |
+| `heavy-feed-only` | Heavy feed, body unknown or fine | The feed asked a lot today. |
+| `tired-body` | Body low, feed not heavy | Take it easy today. |
+| `solid-both` | Sleep/movement ok and feed quiet or absent | You have a solid baseline today. |
+| `quiet-feed` | Gentler feed | You have a solid baseline today. |
+| `check-in` | Default / both sides thin | Check in with both sides today. |
+
+Supporting copy names the inputs (blocked posts, revealed posts, sleep, sessions, steps) and says when a side is missing. Disclaimer: browsing protection plus local health data, not a mental-health assessment.
 
 ## Affirmations
 
-A static list keyed by headline. The Overview **Play** button is a stub until Eleven Labs.
+A static list keyed by headline. The Overview **Play** button is still a stub until Eleven Labs.
 
 ## What we do not compute
 

@@ -266,7 +266,8 @@ export function getPhysicalPayload(userId?: string): PhysicalPayload {
     averageSteps: stepDays.length
       ? Math.round(stepDays.reduce((sum, item) => sum + item.stepCount, 0) / stepDays.length)
       : null,
-    lastSleepScore: scored?.score ?? null
+    lastSleepScore: scored?.score ?? null,
+    lastActivityDate: activity[0]?.date ?? null
   };
 }
 
