@@ -1,6 +1,8 @@
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   display_name TEXT NOT NULL,
+  username TEXT UNIQUE,
+  password_hash TEXT,
   pairing_token TEXT NOT NULL UNIQUE,
   created_at TEXT NOT NULL,
   last_extension_event TEXT,
@@ -44,7 +46,7 @@ CREATE TABLE IF NOT EXISTS mental_daily (
 );
 
 CREATE TABLE IF NOT EXISTS sleep_nights (
-  date TEXT PRIMARY KEY,
+  date TEXT NOT NULL,
   user_id TEXT NOT NULL,
   duration_seconds INTEGER NOT NULL,
   sleep_start TEXT,
@@ -54,11 +56,12 @@ CREATE TABLE IF NOT EXISTS sleep_nights (
   rem_seconds INTEGER,
   deep_seconds INTEGER,
   light_seconds INTEGER,
-  efficiency_percent REAL
+  efficiency_percent REAL,
+  PRIMARY KEY (user_id, date)
 );
 
 CREATE TABLE IF NOT EXISTS exercises (
-  polar_id TEXT PRIMARY KEY,
+  polar_id TEXT NOT NULL,
   user_id TEXT NOT NULL,
   start_time TEXT NOT NULL,
   duration_seconds INTEGER NOT NULL,
@@ -74,27 +77,30 @@ CREATE TABLE IF NOT EXISTS exercises (
   hr_cap INTEGER,
   zone_low_seconds INTEGER,
   zone_mid_seconds INTEGER,
-  zone_high_seconds INTEGER
+  zone_high_seconds INTEGER,
+  PRIMARY KEY (user_id, polar_id)
 );
 
 CREATE TABLE IF NOT EXISTS daily_activity (
-  date TEXT PRIMARY KEY,
+  date TEXT NOT NULL,
   user_id TEXT NOT NULL,
   step_count INTEGER NOT NULL,
   steps_distance REAL,
   calories INTEGER,
-  source TEXT NOT NULL
+  source TEXT NOT NULL,
+  PRIMARY KEY (user_id, date)
 );
 
 CREATE INDEX IF NOT EXISTS idx_exercises_start_time
   ON exercises (start_time);
 
 CREATE TABLE IF NOT EXISTS recharge_nights (
-  date TEXT PRIMARY KEY,
+  date TEXT NOT NULL,
   user_id TEXT NOT NULL,
   ans_charge REAL,
   status TEXT,
-  source TEXT NOT NULL
+  source TEXT NOT NULL,
+  PRIMARY KEY (user_id, date)
 );
 
 CREATE TABLE IF NOT EXISTS polar_accounts (

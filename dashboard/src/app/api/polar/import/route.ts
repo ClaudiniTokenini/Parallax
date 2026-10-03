@@ -1,6 +1,6 @@
 import { preflight, withCors } from "@/lib/cors";
 import { getDb } from "@/lib/db";
-import { getRequestUser } from "@/lib/auth";
+import { getSessionUser } from "@/lib/auth";
 import { importPolarZip } from "@/lib/polar-export";
 
 export const runtime = "nodejs";
@@ -23,7 +23,8 @@ export async function POST(request: Request) {
     }
 
     getDb();
-    const user = await getRequestUser();
+    const user = await getSessionUser();
+    if (!user) return withCors(request, { ok: false, error: "Sign in first." }, 401);
     const buffer = Buffer.from(await file.arrayBuffer());
     const result = await importPolarZip(buffer, user.id);
     return withCors(request, { ok: true, ...result });

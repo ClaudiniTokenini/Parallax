@@ -367,7 +367,7 @@ export function getOverviewPayload(userId?: string): OverviewPayload {
     revealedLast3Days: digital3.revealed,
     dataSource: (getMeta("data_source") as DataSource | null) ?? null,
     lastExtensionEvent: user.lastExtensionEvent,
-    lastPolarSync: user.lastHealthImport ?? getMeta("last_polar_sync"),
+    lastPolarSync: user.lastHealthImport,
     insight: computeInsight(user.id)
   };
 }

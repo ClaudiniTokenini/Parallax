@@ -15,12 +15,17 @@ export default async function SettingsPage() {
       <p className="text-xs tracking-[0.22em] text-[#7a746b]">SETTINGS</p>
       <h1 className="serif mt-3 text-5xl">Local connections</h1>
       <p className="mt-3 max-w-2xl text-[#7a746b]">
-        Everything stays on this machine. Pair the extension with the code below. Health stats come
-        from a ZIP export of your watch or training app.
+        Everything stays on this machine. Create your own account, pair the extension with your
+        code, and upload your health ZIP. Nobody else on this dashboard can open your data.
       </p>
 
       <div className="mt-8">
-        <SettingsProfile displayName={data.displayName} pairingToken={data.pairingToken} />
+        <SettingsProfile
+          displayName={data.displayName}
+          username={data.username}
+          hasPassword={data.hasPassword}
+          pairingToken={data.pairingToken}
+        />
       </div>
 
       <div className="mt-6 grid gap-4 md:grid-cols-2">
@@ -33,10 +38,6 @@ export default async function SettingsPage() {
 
       <div className="mt-8">
         <SettingsActions />
-        <p className="mt-4 max-w-2xl text-sm text-[#7a746b]">
-          Upload fills Physical health with workouts, daily steps, and sleep. Wipe clears stored
-          events and health rows, not this local profile.
-        </p>
       </div>
     </AppShell>
   );

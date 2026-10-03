@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { LogoutButton } from "@/components/logout-button";
 import { getRequestUser, initialsFor } from "@/lib/auth";
 
 const LINKS = [
@@ -42,11 +43,8 @@ export async function AppShell({
             );
           })}
         </nav>
-        <div
-          title={user.displayName}
-          className="flex h-10 min-w-10 items-center justify-center rounded-full bg-[#efe8ff] px-2 text-sm"
-        >
-          {mark}
+        <div className="flex items-center gap-2">
+          <LogoutButton />
         </div>
       </header>
       <nav className="mx-auto flex w-full max-w-6xl gap-2 overflow-auto px-6 pb-2 md:hidden">

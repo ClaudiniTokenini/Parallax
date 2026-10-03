@@ -182,6 +182,8 @@ export type SettingsPayload = {
   exerciseCount: number;
   activityCount: number;
   displayName: string;
+  username: string | null;
+  hasPassword: boolean;
   pairingToken: string;
   userId: string;
 };
