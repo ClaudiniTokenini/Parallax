@@ -4,28 +4,44 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Parallax</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="popup.css" />
   </head>
   <body>
     <main class="card">
       <header class="brand">
-        <img class="logo" src="../icons/icon48.png" alt="" />
-        <div>
-          <h1>Parallax</h1>
-          <p>Local negative-content filter</p>
-        </div>
+        <img class="mark" src="assets/logo_graphic.svg" alt="" />
+        <img class="wordmark" src="assets/logo_text.svg" alt="PARALLAX" />
       </header>
+      <p class="tagline">Your physical and mental well-being, all in one place.</p>
 
-      <p id="llm-status" class="status">Checking Parallax API…</p>
-      <p id="fb-status" class="status">Checking Facebook tab…</p>
+      <p id="fb-status" class="status">Checking Facebook…</p>
       <p id="dashboard-status" class="status">Checking dashboard…</p>
+      <p id="llm-status" class="status">Checking classifier…</p>
 
-      <label class="field">
-        API URL
-        <input id="api-url" type="url" placeholder="http://192.168.0.12:8000" />
+      <label class="toggle">
+        <span>
+          <strong>Feed protection</strong>
+          <small id="toggle-label">On — blur negative posts</small>
+        </span>
+        <input id="enabled-toggle" type="checkbox" checked />
       </label>
-      <button id="connect-btn" type="button" class="secondary">Save & connect</button>
+
       <button id="dashboard-btn" type="button">Show dashboard</button>
+
+      <details class="advanced">
+        <summary>Classifier API</summary>
+        <label class="field">
+          API URL
+          <input id="api-url" type="url" placeholder="http://127.0.0.1:8000" />
+        </label>
+        <button id="connect-btn" type="button" class="secondary">Save &amp; connect</button>
+      </details>
     </main>
     <script src="popup.js"></script>
   </body>

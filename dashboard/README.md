@@ -1,6 +1,6 @@
 # Dashboard
 
-Local Next.js app for Parallax. Product brief: [CONTEXT.md](CONTEXT.md). Mockup: [mockups/dashboard_mockup.png](mockups/dashboard_mockup.png).
+Local Next.js app for Parallax. Product brief: [CONTEXT.md](CONTEXT.md). Mockup: [mockups/dashboard_mockup.png](mockups/dashboard_mockup.png). Logos and the sun/moon art live in [assets/](assets/) and are served from `public/assets/`.
 
 ## Commands
 

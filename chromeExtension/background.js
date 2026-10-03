@@ -81,6 +81,14 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
 
+  if (message?.type === "SET_ENABLED") {
+    const enabled = message.enabled !== false;
+    chrome.storage.local.set({ enabled });
+    broadcastToFacebook({ type: "SET_ENABLED", enabled });
+    sendResponse({ ok: true, enabled });
+    return false;
+  }
+
   if (message?.type === "PING_DASHBOARD") {
     pingDashboard()
       .then(sendResponse)
@@ -111,6 +119,12 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   return false;
 });
 
+chrome.runtime.onInstalled.addListener((details) => {
+  if (details.reason !== "install") return;
+  chrome.storage.local.set({ enabled: true });
+  openDashboardOnInstall();
+});
+
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.status !== "complete") return;
   const url = tab.url || "";
@@ -129,6 +143,23 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     })
     .catch((error) => console.warn("[Parallax] inject failed", error));
 });
+
+function openDashboardOnInstall() {
+  pingDashboard()
+    .then(() => chrome.tabs.create({ url: DASHBOARD_BASE }))
+    .catch(() => chrome.tabs.create({ url: chrome.runtime.getURL("dashboard.html") }));
+}
+
+function broadcastToFacebook(message) {
+  chrome.tabs.query({ url: ["https://*.facebook.com/*", "https://facebook.com/*"] }, (tabs) => {
+    for (const tab of tabs) {
+      if (!tab.id) continue;
+      chrome.tabs.sendMessage(tab.id, message, () => {
+        void chrome.runtime.lastError;
+      });
+    }
+  });
+}
 
 function isFacebookUrl(url) {
   try {

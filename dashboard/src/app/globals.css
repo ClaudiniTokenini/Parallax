@@ -27,5 +27,5 @@ a {
 }
 
 .serif {
-  font-family: var(--font-fraunces), Georgia, serif;
+  font-family: var(--font-playfair), "Playfair Display", Georgia, serif;
 }

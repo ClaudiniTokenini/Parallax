@@ -18,12 +18,9 @@ export function AppShell({
   return (
     <div className="min-h-screen bg-[#fbf7f1] text-[#1d1a16]">
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-6">
-        <Link href="/" className="flex items-center gap-2 text-sm font-semibold tracking-[0.18em]">
-          <span className="relative h-3.5 w-3.5">
-            <span className="absolute inset-0 rounded-full bg-[#cbb8f3]" />
-            <span className="absolute left-1.5 top-0 h-3.5 w-3.5 rounded-full bg-[#f6d35c]" />
-          </span>
-          PARALLAX
+        <Link href="/" className="flex items-center gap-3">
+          <img src="/assets/logo_graphic.svg" alt="" className="h-8 w-10" />
+          <img src="/assets/logo_text.svg" alt="PARALLAX" className="h-4 w-auto" />
         </Link>
         <nav className="hidden items-center gap-2 md:flex">
           {LINKS.map((link) => {
