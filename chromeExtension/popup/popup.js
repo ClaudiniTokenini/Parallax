@@ -35,7 +35,7 @@ connectBtn.addEventListener("click", async () => {
   pingApi();
 });
 
-pingFacebook();
+pingFeed();
 
 function pingApi() {
   llmStatusEl.classList.remove("ok", "err");
@@ -54,24 +54,25 @@ function pingApi() {
   });
 }
 
-function pingFacebook() {
+function pingFeed() {
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     const tab = tabs[0];
-    if (!tab?.id || !isFacebookUrl(tab.url || "")) {
-      fbStatusEl.textContent = "Open Facebook, then refresh the tab.";
+    if (!tab?.id || !isSupportedFeedUrl(tab.url || "")) {
+      fbStatusEl.textContent = "Open Facebook or X/Twitter, then refresh the tab.";
       return;
     }
 
     chrome.tabs.sendMessage(tab.id, { type: "PING_CONTENT" }, (response) => {
       if (chrome.runtime.lastError || !response?.ok) {
         fbStatusEl.textContent =
-          "Script not running. Click Reload on the extension, then refresh Facebook.";
+          "Script not running. Click Reload on the extension, then refresh the tab.";
         fbStatusEl.classList.add("err");
         return;
       }
 
+      const site = response.platform === "twitter" ? "X/Twitter" : "Facebook";
       const errorSuffix = response.lastError ? ` · ${response.lastError}` : "";
-      fbStatusEl.textContent = `Active on Facebook · ${response.postsFound} posts found · ${response.postsScanned} classified${errorSuffix}`;
+      fbStatusEl.textContent = `Active on ${site} · ${response.postsFound} posts found · ${response.postsScanned} classified${errorSuffix}`;
       fbStatusEl.classList.add(response.lastError ? "err" : "ok");
     });
   });
@@ -90,10 +91,17 @@ function normalizeApiUrl(value) {
   }
 }
 
-function isFacebookUrl(url) {
+function isSupportedFeedUrl(url) {
   try {
     const { hostname } = new URL(url);
-    return hostname === "facebook.com" || hostname.endsWith(".facebook.com");
+    return (
+      hostname === "facebook.com" ||
+      hostname.endsWith(".facebook.com") ||
+      hostname === "x.com" ||
+      hostname.endsWith(".x.com") ||
+      hostname === "twitter.com" ||
+      hostname.endsWith(".twitter.com")
+    );
   } catch {
     return false;
   }
