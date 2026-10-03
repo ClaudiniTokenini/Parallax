@@ -57,7 +57,7 @@ let contentStatus = {
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === "CLASSIFY_POST") {
-    enqueue(() => classifyPost(message.text))
+    enqueue(() => classifyPost(message.text, message.postId))
       .then(sendResponse)
       .catch((error) => {
         console.warn("[Parallax] classify failed", error);
@@ -98,7 +98,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === "SET_ENABLED") {
     const enabled = message.enabled !== false;
     chrome.storage.local.set({ enabled });
-    broadcastToFacebook({ type: "SET_ENABLED", enabled });
+    broadcastToFeeds({ type: "SET_ENABLED", enabled });
     sendResponse({ ok: true, enabled });
     return false;
   }
@@ -169,15 +169,27 @@ function openDashboardOnInstall() {
     .catch(() => chrome.tabs.create({ url: chrome.runtime.getURL("dashboard.html") }));
 }
 
-function broadcastToFacebook(message) {
-  chrome.tabs.query({ url: ["https://*.facebook.com/*", "https://facebook.com/*"] }, (tabs) => {
-    for (const tab of tabs) {
-      if (!tab.id) continue;
-      chrome.tabs.sendMessage(tab.id, message, () => {
-        void chrome.runtime.lastError;
-      });
+function broadcastToFeeds(message) {
+  chrome.tabs.query(
+    {
+      url: [
+        "https://*.facebook.com/*",
+        "https://facebook.com/*",
+        "https://*.x.com/*",
+        "https://x.com/*",
+        "https://*.twitter.com/*",
+        "https://twitter.com/*"
+      ]
+    },
+    (tabs) => {
+      for (const tab of tabs) {
+        if (!tab.id) continue;
+        chrome.tabs.sendMessage(tab.id, message, () => {
+          void chrome.runtime.lastError;
+        });
+      }
     }
-  });
+  );
 }
 
 function isFacebookUrl(url) {
@@ -360,10 +372,16 @@ async function pingApi() {
   return { ok: true, baseUrl: cachedApiBase, model: payload.model };
 }
 
-async function classifyPost(text) {
+async function classifyPost(text, postId) {
   const content = String(text || "").trim();
   if (!content) {
     return { ok: true, isNegative: false };
+  }
+
+  const cacheId = String(postId || fingerprint(content));
+  const cached = await readClassifyCache(cacheId);
+  if (cached) {
+    return { ok: true, isNegative: cached.isNegative, cached: true };
   }
 
   const response = await apiFetch("/classify", {
@@ -378,8 +396,41 @@ async function classifyPost(text) {
   }
 
   const isNegative = Boolean(payload.isNegative ?? payload.is_negative);
+  await writeClassifyCache(cacheId, isNegative);
   console.info("[Parallax] api", { isNegative });
   return { ok: true, isNegative };
+}
+
+function fingerprint(text) {
+  let hash = 2166136261;
+  for (let i = 0; i < text.length; i += 1) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16);
+}
+
+async function readClassifyCache(id) {
+  const stored = await chrome.storage.local.get({ plxClassifyCache: {} });
+  const entry = stored.plxClassifyCache?.[id];
+  if (!entry || typeof entry.isNegative !== "boolean") return null;
+  return entry;
+}
+
+async function writeClassifyCache(id, isNegative) {
+  const stored = await chrome.storage.local.get({ plxClassifyCache: {} });
+  const cache = stored.plxClassifyCache || {};
+  cache[id] = { isNegative: Boolean(isNegative), at: Date.now() };
+  const keys = Object.keys(cache);
+  if (keys.length > 800) {
+    const keep = keys
+      .sort((a, b) => (cache[b].at || 0) - (cache[a].at || 0))
+      .slice(0, 500);
+    for (const key of keys) {
+      if (!keep.includes(key)) delete cache[key];
+    }
+  }
+  await chrome.storage.local.set({ plxClassifyCache: cache });
 }
 
 async function bumpStat(key) {

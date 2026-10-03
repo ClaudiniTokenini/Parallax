@@ -34,11 +34,13 @@
 
       <button id="dashboard-btn" type="button">Show dashboard</button>
 
-      <label class="field">
-        Pairing code
-        <input id="pairing-token" type="text" placeholder="plx_…" autocomplete="off" spellcheck="false" />
-      </label>
-      <button id="pair-btn" type="button" class="secondary">Save pairing code</button>
+      <form id="pair-form">
+        <label class="field">
+          Pairing code
+          <input id="pairing-token" type="text" placeholder="plx_…" autocomplete="off" spellcheck="false" />
+        </label>
+        <button id="pair-btn" type="submit" class="secondary">Save pairing code</button>
+      </form>
     </main>
     <script src="../env.js"></script>
     <script src="popup.js"></script>

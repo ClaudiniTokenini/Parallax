@@ -153,6 +153,10 @@ body {
   outline: none;
 }
 
+#pair-form {
+  display: contents;
+}
+
 .field {
   display: flex;
   flex-direction: column;
