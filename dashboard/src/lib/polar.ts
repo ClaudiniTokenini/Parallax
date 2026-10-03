@@ -127,7 +127,7 @@ function pickNumber(record: Record<string, unknown>, keys: string[]): number | n
   return null;
 }
 
-function parseDuration(value: unknown): number | null {
+export function parseDuration(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) {
     return value > 100000 ? Math.round(value / 1e9) : value;
   }

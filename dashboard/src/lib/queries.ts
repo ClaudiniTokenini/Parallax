@@ -1,6 +1,7 @@
 import { getDb, getMeta } from "./db";
 import { hoursBetween, isoDaysAgo, secondsToHours } from "./dates";
 import type {
+  DailyActivity,
   DataSource,
   DigitalCounts,
   Exercise,
@@ -10,6 +11,7 @@ import type {
   SettingsPayload,
   SleepNight
 } from "./types";
+import { computePhysicalSummary } from "./physical-summary";
 
 function asRate(numerator: number, denominator: number): number | null {
   if (!denominator) return null;
@@ -55,13 +57,23 @@ function mapSleep(row: {
   sleep_start: string | null;
   sleep_end: string | null;
   source: string;
+  score: number | null;
+  rem_seconds: number | null;
+  deep_seconds: number | null;
+  light_seconds: number | null;
+  efficiency_percent: number | null;
 }): SleepNight {
   return {
     date: row.date,
     durationSeconds: row.duration_seconds,
     sleepStart: row.sleep_start,
     sleepEnd: row.sleep_end,
-    source: row.source
+    source: row.source,
+    score: row.score,
+    remSeconds: row.rem_seconds,
+    deepSeconds: row.deep_seconds,
+    lightSeconds: row.light_seconds,
+    efficiencyPercent: row.efficiency_percent
   };
 }
 
@@ -72,7 +84,16 @@ function mapExercise(row: {
   sport: string | null;
   calories: number | null;
   cardio_load: number | null;
+  cardio_load_label: string | null;
+  hr_avg: number | null;
+  hr_max: number | null;
+  hr_cap: number | null;
+  distance_meters: number | null;
+  name: string | null;
   source: string;
+  zone_low_seconds: number | null;
+  zone_mid_seconds: number | null;
+  zone_high_seconds: number | null;
 }): Exercise {
   return {
     polarId: row.polar_id,
@@ -81,6 +102,31 @@ function mapExercise(row: {
     sport: row.sport,
     calories: row.calories,
     cardioLoad: row.cardio_load,
+    cardioLoadLabel: row.cardio_load_label,
+    hrAvg: row.hr_avg,
+    hrMax: row.hr_max,
+    hrCap: row.hr_cap,
+    distanceMeters: row.distance_meters,
+    name: row.name,
+    source: row.source,
+    zoneLowSeconds: row.zone_low_seconds || 0,
+    zoneMidSeconds: row.zone_mid_seconds || 0,
+    zoneHighSeconds: row.zone_high_seconds || 0
+  };
+}
+
+function mapActivity(row: {
+  date: string;
+  step_count: number;
+  steps_distance: number | null;
+  calories: number | null;
+  source: string;
+}): DailyActivity {
+  return {
+    date: row.date,
+    stepCount: row.step_count,
+    stepsDistance: row.steps_distance,
+    calories: row.calories,
     source: row.source
   };
 }
@@ -103,10 +149,11 @@ export function getDigitalCounts(days: number): DigitalCounts {
   return digitalSince(isoDaysAgo(days));
 }
 
-export function getSleepNights(limit = 28): SleepNight[] {
+export function getSleepNights(limit = 365): SleepNight[] {
   const rows = getDb()
     .prepare(
-      `SELECT date, duration_seconds, sleep_start, sleep_end, source
+      `SELECT date, duration_seconds, sleep_start, sleep_end, source,
+              score, rem_seconds, deep_seconds, light_seconds, efficiency_percent
        FROM sleep_nights
        ORDER BY date DESC
        LIMIT ?`
@@ -115,10 +162,12 @@ export function getSleepNights(limit = 28): SleepNight[] {
   return rows.map(mapSleep);
 }
 
-export function getExercises(limit = 40): Exercise[] {
+export function getExercises(limit = 365): Exercise[] {
   const rows = getDb()
     .prepare(
-      `SELECT polar_id, start_time, duration_seconds, sport, calories, cardio_load, source
+      `SELECT polar_id, start_time, duration_seconds, sport, calories, cardio_load, source,
+              hr_avg, hr_max, cardio_load_label, distance_meters, name,
+              hr_cap, zone_low_seconds, zone_mid_seconds, zone_high_seconds
        FROM exercises
        ORDER BY start_time DESC
        LIMIT ?`
@@ -127,7 +176,7 @@ export function getExercises(limit = 40): Exercise[] {
   return rows.map(mapExercise);
 }
 
-export function getRechargeNights(limit = 28): RechargeNight[] {
+export function getRechargeNights(limit = 365): RechargeNight[] {
   const rows = getDb()
     .prepare(
       `SELECT date, ans_charge, status, source
@@ -139,8 +188,20 @@ export function getRechargeNights(limit = 28): RechargeNight[] {
   return rows.map(mapRecharge);
 }
 
+export function getDailyActivity(limit = 365): DailyActivity[] {
+  const rows = getDb()
+    .prepare(
+      `SELECT date, step_count, steps_distance, calories, source
+       FROM daily_activity
+       ORDER BY date DESC
+       LIMIT ?`
+    )
+    .all(limit) as Parameters<typeof mapActivity>[0][];
+  return rows.map(mapActivity);
+}
+
 export function meanSleepHours(nights: SleepNight[], take: number): number | null {
-  const slice = nights.slice(0, take);
+  const slice = nights.filter((night) => night.durationSeconds > 0).slice(0, take);
   if (!slice.length) return null;
   const total = slice.reduce((sum, night) => sum + secondsToHours(night.durationSeconds), 0);
   return total / slice.length;
@@ -149,7 +210,11 @@ export function meanSleepHours(nights: SleepNight[], take: number): number | nul
 export function getPhysicalPayload(): PhysicalPayload {
   const sleepNights = getSleepNights();
   const exercises = getExercises();
+  const rechargeNights = getRechargeNights();
+  const activity = getDailyActivity();
   const lastWorkout = exercises[0] ?? null;
+  const stepDays = activity.filter((item) => item.stepCount > 0);
+  const scored = sleepNights.find((night) => night.score != null);
 
   return {
     dataSource: (getMeta("data_source") as DataSource | null) ?? null,
@@ -158,9 +223,14 @@ export function getPhysicalPayload(): PhysicalPayload {
     lastWorkout,
     sleepNights,
     exercises,
-    rechargeNights: getRechargeNights(),
+    rechargeNights,
+    summary: computePhysicalSummary(sleepNights, exercises, rechargeNights, activity),
     recentSleepHours: meanSleepHours(sleepNights, 3),
-    baselineSleepHours: meanSleepHours(sleepNights, 14)
+    baselineSleepHours: meanSleepHours(sleepNights, 14),
+    averageSteps: stepDays.length
+      ? Math.round(stepDays.reduce((sum, item) => sum + item.stepCount, 0) / stepDays.length)
+      : null,
+    lastSleepScore: scored?.score ?? null
   };
 }
 
@@ -193,6 +263,9 @@ export function getSettingsPayload(): SettingsPayload {
     ).count,
     exerciseCount: (
       database.prepare("SELECT COUNT(*) AS count FROM exercises").get() as { count: number }
+    ).count,
+    activityCount: (
+      database.prepare("SELECT COUNT(*) AS count FROM daily_activity").get() as { count: number }
     ).count
   };
 }

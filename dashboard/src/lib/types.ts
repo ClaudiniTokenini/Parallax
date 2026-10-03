@@ -1,6 +1,6 @@
 export type EventType = "classified" | "hidden" | "revealed";
 export type Platform = "facebook" | "twitter";
-export type DataSource = "live" | "fixture";
+export type DataSource = "live" | "fixture" | "export";
 
 export type PostEventInput = {
   eventType: EventType;
@@ -25,6 +25,11 @@ export type SleepNight = {
   sleepStart: string | null;
   sleepEnd: string | null;
   source: string;
+  score: number | null;
+  remSeconds: number | null;
+  deepSeconds: number | null;
+  lightSeconds: number | null;
+  efficiencyPercent: number | null;
 };
 
 export type Exercise = {
@@ -34,6 +39,23 @@ export type Exercise = {
   sport: string | null;
   calories: number | null;
   cardioLoad: number | null;
+  cardioLoadLabel: string | null;
+  hrAvg: number | null;
+  hrMax: number | null;
+  hrCap: number | null;
+  distanceMeters: number | null;
+  name: string | null;
+  source: string;
+  zoneLowSeconds: number;
+  zoneMidSeconds: number;
+  zoneHighSeconds: number;
+};
+
+export type DailyActivity = {
+  date: string;
+  stepCount: number;
+  stepsDistance: number | null;
+  calories: number | null;
   source: string;
 };
 
@@ -42,6 +64,41 @@ export type RechargeNight = {
   ansCharge: number | null;
   status: string | null;
   source: string;
+};
+
+export type PhysicalHighlight = {
+  label: string;
+  value: string;
+  detail: string;
+};
+
+export type PhysicalSportShare = {
+  sport: string;
+  count: number;
+  minutes: number;
+  distanceKm: number | null;
+};
+
+export type HeartZoneStats = {
+  lowSeconds: number;
+  highSeconds: number;
+  midSeconds: number;
+  lowSessions: number;
+  highSessions: number;
+  mixedSessions: number;
+  verdict: string;
+  verdictDetail: string;
+};
+
+export type PhysicalSummary = {
+  periodLabel: string;
+  dayCount: number;
+  affirmation: string;
+  pepTalks: string[];
+  supporting: string;
+  highlights: PhysicalHighlight[];
+  sports: PhysicalSportShare[];
+  heart: HeartZoneStats | null;
 };
 
 export type Insight = {
@@ -72,8 +129,11 @@ export type PhysicalPayload = {
   sleepNights: SleepNight[];
   exercises: Exercise[];
   rechargeNights: RechargeNight[];
+  summary: PhysicalSummary;
   recentSleepHours: number | null;
   baselineSleepHours: number | null;
+  averageSteps: number | null;
+  lastSleepScore: number | null;
 };
 
 export type MentalPayload = {
@@ -92,4 +152,5 @@ export type SettingsPayload = {
   eventCount: number;
   sleepCount: number;
   exerciseCount: number;
+  activityCount: number;
 };

@@ -1,16 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
-export function SettingsActions({
-  polarConnected,
-  polarConfigured
-}: {
-  polarConnected: boolean;
-  polarConfigured: boolean;
-}) {
+export function SettingsActions() {
   const router = useRouter();
+  const fileRef = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -19,7 +14,7 @@ export function SettingsActions({
     setMessage("");
     try {
       const response = await fetch(path, { method: "POST" });
-      const payload = (await response.json()) as { ok?: boolean; error?: string };
+      const payload = await readJson(response);
       if (!response.ok || !payload.ok) {
         throw new Error(payload.error || `Request failed (${response.status})`);
       }
@@ -32,33 +27,50 @@ export function SettingsActions({
     }
   }
 
+  async function uploadZip(file: File) {
+    setBusy(true);
+    setMessage("");
+    try {
+      const body = new FormData();
+      body.set("file", file);
+      const response = await fetch("/api/polar/import", { method: "POST", body });
+      const payload = await readJson(response);
+      if (!response.ok || !payload.ok) {
+        throw new Error(payload.error || `Upload failed (${response.status})`);
+      }
+      setMessage(
+        `Imported ${payload.exercises ?? 0} workouts, ${payload.activity ?? 0} step days, ${payload.sleep ?? 0} nights.`
+      );
+      router.refresh();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Upload failed");
+    } finally {
+      setBusy(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap gap-3">
-        <a
-          href="/api/polar/auth"
-          className={`rounded-full px-5 py-2 text-sm font-medium ${
-            polarConfigured ? "bg-[#cbb8f3]" : "bg-[#eee7dc] text-[#7a746b]"
-          }`}
-        >
-          {polarConnected ? "Reconnect Polar" : "Connect Polar"}
-        </a>
-        <button
-          type="button"
-          disabled={busy || !polarConnected}
-          onClick={() => post("/api/polar/sync", "Polar sync finished.")}
-          className="rounded-full bg-[#efe8ff] px-5 py-2 text-sm font-medium disabled:opacity-50"
-        >
-          Sync now
-        </button>
         <button
           type="button"
           disabled={busy}
-          onClick={() => post("/api/seed", "Demo digital and health data loaded.")}
-          className="rounded-full bg-[#f6d35c] px-5 py-2 text-sm font-medium disabled:opacity-50"
+          onClick={() => fileRef.current?.click()}
+          className="rounded-full bg-[#cbb8f3] px-5 py-2 text-sm font-medium disabled:opacity-50"
         >
-          Load demo data
+          Upload health ZIP
         </button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".zip,application/zip"
+          className="hidden"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) void uploadZip(file);
+          }}
+        />
         <button
           type="button"
           disabled={busy}
@@ -71,4 +83,26 @@ export function SettingsActions({
       {message ? <p className="text-sm text-[#7a746b]">{message}</p> : null}
     </div>
   );
+}
+
+async function readJson(response: Response): Promise<{
+  ok?: boolean;
+  error?: string;
+  exercises?: number;
+  sleep?: number;
+  activity?: number;
+}> {
+  const text = await response.text();
+  if (!text) return {};
+  try {
+    return JSON.parse(text) as {
+      ok?: boolean;
+      error?: string;
+      exercises?: number;
+      sleep?: number;
+      activity?: number;
+    };
+  } catch {
+    return { error: text.slice(0, 180) };
+  }
 }
