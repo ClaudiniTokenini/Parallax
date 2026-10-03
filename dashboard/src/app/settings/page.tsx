@@ -1,35 +1,41 @@
 import { AppShell } from "@/components/app-shell";
 import { SettingsActions } from "@/components/settings-actions";
+import { SettingsProfile } from "@/components/settings-profile";
+import { getRequestUser } from "@/lib/auth";
 import { getSettingsPayload } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
-  const data = getSettingsPayload();
+  const user = await getRequestUser();
+  const data = getSettingsPayload(user.id);
 
   return (
     <AppShell current="/settings">
       <p className="text-xs tracking-[0.22em] text-[#7a746b]">SETTINGS</p>
       <h1 className="serif mt-3 text-5xl">Local connections</h1>
       <p className="mt-3 max-w-2xl text-[#7a746b]">
-        Everything stays on this machine. The extension posts events to port 3000. Health stats
-        come from a ZIP export of your watch or training app.
+        Everything stays on this machine. Pair the extension with the code below. Health stats come
+        from a ZIP export of your watch or training app.
       </p>
 
-      <div className="mt-8 grid gap-4 md:grid-cols-2">
+      <div className="mt-8">
+        <SettingsProfile displayName={data.displayName} pairingToken={data.pairingToken} />
+      </div>
+
+      <div className="mt-6 grid gap-4 md:grid-cols-2">
         <Row label="Extension last event" value={when(data.lastExtensionEvent)} />
         <Row label="Health last import" value={when(data.lastPolarSync)} />
         <Row label="Stored events" value={String(data.eventCount)} />
         <Row label="Sleep nights / workouts" value={`${data.sleepCount} / ${data.exerciseCount}`} />
         <Row label="Step days" value={String(data.activityCount)} />
-        <Row label="SQLite file" value="dashboard/data/parallax.db" />
       </div>
 
       <div className="mt-8">
         <SettingsActions />
         <p className="mt-4 max-w-2xl text-sm text-[#7a746b]">
-          Upload fills Physical health with workouts, daily steps, and sleep. Wipe clears the local
-          database without deleting the file on disk.
+          Upload fills Physical health with workouts, daily steps, and sleep. Wipe clears stored
+          events and health rows, not this local profile.
         </p>
       </div>
     </AppShell>

@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --hostname 127.0.0.1 --port 3000",
+    "dev": "node scripts/write-extension-env.mjs && next dev --hostname 0.0.0.0 --port 3000",
     "build": "next build",
-    "start": "next start --hostname 127.0.0.1 --port 3000",
+    "start": "node scripts/write-extension-env.mjs && next start --hostname 0.0.0.0 --port 3000",
     "seed": "tsx scripts/seed.ts",
     "reset": "tsx scripts/reset.ts"
   },

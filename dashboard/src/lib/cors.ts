@@ -1,14 +1,11 @@
 import { NextResponse } from "next/server";
 
-const ALLOWED_HEADERS = "Content-Type, Authorization";
+const ALLOWED_HEADERS = "Content-Type, Authorization, X-Parallax-Token, Accept";
 const ALLOWED_METHODS = "GET, POST, OPTIONS";
 
 function allowOrigin(origin: string | null): string {
-  if (origin && origin.startsWith("chrome-extension://")) return origin;
-  if (origin === "http://127.0.0.1:3000" || origin === "http://localhost:3000") {
-    return origin;
-  }
-  return "http://127.0.0.1:3000";
+  if (origin && origin !== "null") return origin;
+  return "*";
 }
 
 export function corsHeaders(origin: string | null): HeadersInit {

@@ -1,46 +1,41 @@
+import { getSoloUser, getUserById } from "./auth";
 import { getDb, getMeta } from "./db";
-import { hoursBetween, isoDaysAgo, secondsToHours } from "./dates";
+import { hoursBetween, isoDaysAgo, localDateKey, secondsToHours } from "./dates";
+import { computeMentalSummary, PLATFORM_LABEL } from "./mental-summary";
+import { computePhysicalSummary } from "./physical-summary";
 import type {
   DailyActivity,
   DataSource,
   DigitalCounts,
   Exercise,
   MentalPayload,
+  MentalPlatformShare,
   PhysicalPayload,
+  Platform,
   RechargeNight,
   SettingsPayload,
   SleepNight
 } from "./types";
-import { computePhysicalSummary } from "./physical-summary";
 
 function asRate(numerator: number, denominator: number): number | null {
   if (!denominator) return null;
   return numerator / denominator;
 }
 
-function digitalSince(isoFrom: string): DigitalCounts {
-  const row = getDb()
-    .prepare(
-      `SELECT
-         SUM(CASE WHEN event_type = 'classified' THEN 1 ELSE 0 END) AS classified,
-         SUM(CASE WHEN event_type = 'classified' AND is_negative = 1 THEN 1 ELSE 0 END) AS negative,
-         SUM(CASE WHEN event_type = 'hidden' THEN 1 ELSE 0 END) AS hidden,
-         SUM(CASE WHEN event_type = 'revealed' THEN 1 ELSE 0 END) AS revealed
-       FROM post_events
-       WHERE occurred_at >= ?`
-    )
-    .get(isoFrom) as {
-    classified: number | null;
-    negative: number | null;
-    hidden: number | null;
-    revealed: number | null;
-  };
+function uid(userId?: string): string {
+  return userId || getSoloUser().id;
+}
 
+function countsFromRow(row: {
+  classified: number | null;
+  negative: number | null;
+  hidden: number | null;
+  revealed: number | null;
+}): DigitalCounts {
   const classified = Number(row.classified || 0);
   const negative = Number(row.negative || 0);
   const hidden = Number(row.hidden || 0);
   const revealed = Number(row.revealed || 0);
-
   return {
     classified,
     negative,
@@ -49,6 +44,30 @@ function digitalSince(isoFrom: string): DigitalCounts {
     negativityRate: asRate(negative, classified),
     revealRate: asRate(revealed, hidden)
   };
+}
+
+function digitalSince(userId: string, isoFrom: string, platform?: Platform): DigitalCounts {
+  const dateFrom = localDateKey(new Date(isoFrom));
+  const row = getDb()
+    .prepare(
+      `SELECT
+         COALESCE(SUM(classified), 0) AS classified,
+         COALESCE(SUM(negative), 0) AS negative,
+         COALESCE(SUM(hidden), 0) AS hidden,
+         COALESCE(SUM(revealed), 0) AS revealed
+       FROM mental_daily
+       WHERE user_id = ?
+         AND date >= ?
+         ${platform ? "AND platform = ?" : ""}`
+    )
+    .get(...(platform ? [userId, dateFrom, platform] : [userId, dateFrom])) as {
+    classified: number | null;
+    negative: number | null;
+    hidden: number | null;
+    revealed: number | null;
+  };
+
+  return countsFromRow(row);
 }
 
 function mapSleep(row: {
@@ -145,58 +164,73 @@ function mapRecharge(row: {
   };
 }
 
-export function getDigitalCounts(days: number): DigitalCounts {
-  return digitalSince(isoDaysAgo(days));
+export function getDigitalCounts(days: number, userId?: string, platform?: Platform): DigitalCounts {
+  return digitalSince(uid(userId), isoDaysAgo(days), platform);
 }
 
-export function getSleepNights(limit = 365): SleepNight[] {
+function platformShares(userId: string): MentalPlatformShare[] {
+  const platforms: Platform[] = ["facebook", "twitter"];
+  return platforms
+    .map((platform) => ({
+      platform,
+      label: PLATFORM_LABEL[platform],
+      counts: getDigitalCounts(3, userId, platform)
+    }))
+    .filter((item) => item.counts.classified + item.counts.hidden + item.counts.revealed > 0);
+}
+
+export function getSleepNights(limit = 365, userId?: string): SleepNight[] {
   const rows = getDb()
     .prepare(
       `SELECT date, duration_seconds, sleep_start, sleep_end, source,
               score, rem_seconds, deep_seconds, light_seconds, efficiency_percent
        FROM sleep_nights
+       WHERE user_id = ?
        ORDER BY date DESC
        LIMIT ?`
     )
-    .all(limit) as Parameters<typeof mapSleep>[0][];
+    .all(uid(userId), limit) as Parameters<typeof mapSleep>[0][];
   return rows.map(mapSleep);
 }
 
-export function getExercises(limit = 365): Exercise[] {
+export function getExercises(limit = 365, userId?: string): Exercise[] {
   const rows = getDb()
     .prepare(
       `SELECT polar_id, start_time, duration_seconds, sport, calories, cardio_load, source,
               hr_avg, hr_max, cardio_load_label, distance_meters, name,
               hr_cap, zone_low_seconds, zone_mid_seconds, zone_high_seconds
        FROM exercises
+       WHERE user_id = ?
        ORDER BY start_time DESC
        LIMIT ?`
     )
-    .all(limit) as Parameters<typeof mapExercise>[0][];
+    .all(uid(userId), limit) as Parameters<typeof mapExercise>[0][];
   return rows.map(mapExercise);
 }
 
-export function getRechargeNights(limit = 365): RechargeNight[] {
+export function getRechargeNights(limit = 365, userId?: string): RechargeNight[] {
   const rows = getDb()
     .prepare(
       `SELECT date, ans_charge, status, source
        FROM recharge_nights
+       WHERE user_id = ?
        ORDER BY date DESC
        LIMIT ?`
     )
-    .all(limit) as Parameters<typeof mapRecharge>[0][];
+    .all(uid(userId), limit) as Parameters<typeof mapRecharge>[0][];
   return rows.map(mapRecharge);
 }
 
-export function getDailyActivity(limit = 365): DailyActivity[] {
+export function getDailyActivity(limit = 365, userId?: string): DailyActivity[] {
   const rows = getDb()
     .prepare(
       `SELECT date, step_count, steps_distance, calories, source
        FROM daily_activity
+       WHERE user_id = ?
        ORDER BY date DESC
        LIMIT ?`
     )
-    .all(limit) as Parameters<typeof mapActivity>[0][];
+    .all(uid(userId), limit) as Parameters<typeof mapActivity>[0][];
   return rows.map(mapActivity);
 }
 
@@ -207,18 +241,20 @@ export function meanSleepHours(nights: SleepNight[], take: number): number | nul
   return total / slice.length;
 }
 
-export function getPhysicalPayload(): PhysicalPayload {
-  const sleepNights = getSleepNights();
-  const exercises = getExercises();
-  const rechargeNights = getRechargeNights();
-  const activity = getDailyActivity();
+export function getPhysicalPayload(userId?: string): PhysicalPayload {
+  const id = uid(userId);
+  const user = getUserById(id) ?? getSoloUser();
+  const sleepNights = getSleepNights(365, id);
+  const exercises = getExercises(365, id);
+  const rechargeNights = getRechargeNights(365, id);
+  const activity = getDailyActivity(365, id);
   const lastWorkout = exercises[0] ?? null;
   const stepDays = activity.filter((item) => item.stepCount > 0);
   const scored = sleepNights.find((night) => night.score != null);
 
   return {
     dataSource: (getMeta("data_source") as DataSource | null) ?? null,
-    lastPolarSync: getMeta("last_polar_sync"),
+    lastPolarSync: user.lastHealthImport ?? getMeta("last_polar_sync"),
     hoursSinceWorkout: lastWorkout ? hoursBetween(lastWorkout.startTime) : null,
     lastWorkout,
     sleepNights,
@@ -234,15 +270,25 @@ export function getPhysicalPayload(): PhysicalPayload {
   };
 }
 
-export function getMentalPayload(): MentalPayload {
+export function getMentalPayload(userId?: string): MentalPayload {
+  const id = uid(userId);
+  const user = getUserById(id) ?? getSoloUser();
+  const last3Days = getDigitalCounts(3, id);
+  const last14Days = getDigitalCounts(14, id);
+  const platforms = platformShares(id);
+
   return {
-    last3Days: getDigitalCounts(3),
-    last14Days: getDigitalCounts(14),
-    lastExtensionEvent: getMeta("last_extension_event")
+    last3Days,
+    last14Days,
+    lastExtensionEvent: user.lastExtensionEvent,
+    displayName: user.displayName,
+    summary: computeMentalSummary(last3Days, last14Days, platforms)
   };
 }
 
-export function getSettingsPayload(): SettingsPayload {
+export function getSettingsPayload(userId?: string): SettingsPayload {
+  const id = uid(userId);
+  const user = getUserById(id) ?? getSoloUser();
   const database = getDb();
   const polar = database
     .prepare("SELECT user_id FROM polar_accounts LIMIT 1")
@@ -250,22 +296,33 @@ export function getSettingsPayload(): SettingsPayload {
 
   return {
     dataSource: (getMeta("data_source") as DataSource | null) ?? null,
-    lastExtensionEvent: getMeta("last_extension_event"),
-    lastPolarSync: getMeta("last_polar_sync"),
+    lastExtensionEvent: user.lastExtensionEvent,
+    lastPolarSync: user.lastHealthImport ?? getMeta("last_polar_sync"),
     polarConnected: Boolean(polar),
     polarUserId: polar?.user_id ?? null,
     polarConfigured: Boolean(process.env.POLAR_CLIENT_ID && process.env.POLAR_CLIENT_SECRET),
     eventCount: (
-      database.prepare("SELECT COUNT(*) AS count FROM post_events").get() as { count: number }
+      database
+        .prepare("SELECT COUNT(*) AS count FROM post_events WHERE user_id = ?")
+        .get(id) as { count: number }
     ).count,
     sleepCount: (
-      database.prepare("SELECT COUNT(*) AS count FROM sleep_nights").get() as { count: number }
+      database
+        .prepare("SELECT COUNT(*) AS count FROM sleep_nights WHERE user_id = ?")
+        .get(id) as { count: number }
     ).count,
     exerciseCount: (
-      database.prepare("SELECT COUNT(*) AS count FROM exercises").get() as { count: number }
+      database
+        .prepare("SELECT COUNT(*) AS count FROM exercises WHERE user_id = ?")
+        .get(id) as { count: number }
     ).count,
     activityCount: (
-      database.prepare("SELECT COUNT(*) AS count FROM daily_activity").get() as { count: number }
-    ).count
+      database
+        .prepare("SELECT COUNT(*) AS count FROM daily_activity WHERE user_id = ?")
+        .get(id) as { count: number }
+    ).count,
+    displayName: user.displayName,
+    pairingToken: user.pairingToken,
+    userId: user.id
   };
 }

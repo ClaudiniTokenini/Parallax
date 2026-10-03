@@ -1,12 +1,14 @@
 import { AppShell } from "@/components/app-shell";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { PhysicalRecap } from "@/components/physical-recap";
+import { getRequestUser } from "@/lib/auth";
 import { getPhysicalPayload } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 
-export default function PhysicalPage() {
-  const data = getPhysicalPayload();
+export default async function PhysicalPage() {
+  const user = await getRequestUser();
+  const data = getPhysicalPayload(user.id);
 
   return (
     <AppShell current="/physical">

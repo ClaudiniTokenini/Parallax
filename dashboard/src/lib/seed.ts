@@ -1,3 +1,4 @@
+import { getSoloUser } from "./auth";
 import { getDb, setMeta } from "./db";
 import { daysAgo, localDateKey, toIso } from "./dates";
 import { insertPostEvent } from "./ingest";
@@ -73,29 +74,53 @@ function seedDigital(): void {
     }
   }
 
+  for (let i = 0; i < 18; i += 1) {
+    const hours = 5 + (i % 40);
+    const occurredAt = isoHoursAgo(hours);
+    const postId = `demo-tw-${i}`;
+    const negative = i % 3 === 0;
+    insertPostEvent({
+      eventType: "classified",
+      platform: "twitter",
+      postId,
+      isNegative: negative,
+      occurredAt
+    });
+    if (negative) {
+      insertPostEvent({
+        eventType: "hidden",
+        platform: "twitter",
+        postId,
+        isNegative: true,
+        occurredAt
+      });
+    }
+  }
+
   setMeta("last_extension_event", now.toISOString());
 }
 
 function seedHealth(): void {
   const db = getDb();
-  db.prepare("DELETE FROM sleep_nights").run();
-  db.prepare("DELETE FROM exercises").run();
-  db.prepare("DELETE FROM recharge_nights").run();
-  db.prepare("DELETE FROM daily_activity").run();
+  const userId = getSoloUser().id;
+  db.prepare("DELETE FROM sleep_nights WHERE user_id = ?").run(userId);
+  db.prepare("DELETE FROM exercises WHERE user_id = ?").run(userId);
+  db.prepare("DELETE FROM recharge_nights WHERE user_id = ?").run(userId);
+  db.prepare("DELETE FROM daily_activity WHERE user_id = ?").run(userId);
   const insertSleep = db.prepare(
     `INSERT OR REPLACE INTO sleep_nights
-      (date, duration_seconds, sleep_start, sleep_end, source)
-     VALUES (?, ?, ?, ?, 'fixture')`
+      (date, user_id, duration_seconds, sleep_start, sleep_end, source)
+     VALUES (?, ?, ?, ?, ?, 'fixture')`
   );
   const insertExercise = db.prepare(
     `INSERT OR REPLACE INTO exercises
-      (polar_id, start_time, duration_seconds, sport, calories, cardio_load, source)
-     VALUES (?, ?, ?, ?, ?, ?, 'fixture')`
+      (polar_id, user_id, start_time, duration_seconds, sport, calories, cardio_load, source)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'fixture')`
   );
   const insertRecharge = db.prepare(
     `INSERT OR REPLACE INTO recharge_nights
-      (date, ans_charge, status, source)
-     VALUES (?, ?, ?, 'fixture')`
+      (date, user_id, ans_charge, status, source)
+     VALUES (?, ?, ?, ?, 'fixture')`
   );
 
   for (let day = 0; day < 14; day += 1) {
@@ -106,11 +131,11 @@ function seedHealth(): void {
     start.setHours(23, 10, 0, 0);
     start.setDate(start.getDate() - 1);
     const end = new Date(start.getTime() + hours * 36e5);
-    insertSleep.run(key, Math.round(hours * 3600), start.toISOString(), end.toISOString());
+    insertSleep.run(key, userId, Math.round(hours * 3600), start.toISOString(), end.toISOString());
 
     const ans = day === 0 ? 28 : day === 1 ? 36 : 62 + (day % 5) * 4;
     const status = ans < 40 ? "poor" : ans < 60 ? "ok" : "good";
-    insertRecharge.run(key, ans, status);
+    insertRecharge.run(key, userId, ans, status);
   }
 
   const workouts = [
@@ -125,6 +150,7 @@ function seedHealth(): void {
     start.setHours(18, 15, 0, 0);
     insertExercise.run(
       `fixture-ex-${index}`,
+      userId,
       start.toISOString(),
       workout.minutes * 60,
       workout.sport,

@@ -1,6 +1,17 @@
-const API_BASES = ["http://127.0.0.1:8000", "http://localhost:8000"];
+try {
+  importScripts("env.js");
+} catch {
+  // Generated on `npm run dev` in dashboard/. Falls back to localhost.
+}
 
-let cachedApiBase = null;
+function envConfig() {
+  const env = self.PARALLAX_ENV || {};
+  return {
+    dashboardUrl: String(env.dashboardUrl || "http://127.0.0.1:3000").replace(/\/$/, ""),
+    apiUrl: String(env.apiUrl || "http://127.0.0.1:8000").replace(/\/$/, "")
+  };
+}
+
 const CLASSIFICATION_SCHEMA = {
   type: "json_schema",
   json_schema: {
@@ -26,7 +37,10 @@ Set is_negative=true if the post has a negative tone: sad, angry, scary, aggress
 Set is_negative=false only when the post is clearly positive, neutral, informational, or light humor.
 If unsure, set is_negative=true.`;
 
-const DASHBOARD_BASE = "http://127.0.0.1:3000";
+const DASHBOARD_FALLBACKS = ["http://127.0.0.1:3000", "http://localhost:3000"];
+
+let cachedApiBase = null;
+let cachedDashboardBase = null;
 
 let cachedModelId = null;
 let cachedBaseUrl = null;
@@ -112,7 +126,12 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   if (message?.type === "GET_RUNTIME_STATE") {
-    sendResponse({ ok: true, contentStatus, dashboardLastError, dashboardBase: DASHBOARD_BASE });
+    sendResponse({
+      ok: true,
+      contentStatus,
+      dashboardLastError,
+      dashboardBase: cachedDashboardBase || DASHBOARD_FALLBACKS[0]
+    });
     return false;
   }
 
@@ -146,7 +165,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 
 function openDashboardOnInstall() {
   pingDashboard()
-    .then(() => chrome.tabs.create({ url: DASHBOARD_BASE }))
+    .then((result) => chrome.tabs.create({ url: result.baseUrl || DASHBOARD_FALLBACKS[0] }))
     .catch(() => chrome.tabs.create({ url: chrome.runtime.getURL("dashboard.html") }));
 }
 
@@ -196,22 +215,19 @@ function enqueue(task) {
 function explainNetworkError(error) {
   const text = String(error?.message || error || "Unknown error");
   if (/Failed to fetch|NetworkError|Load failed/i.test(text)) {
-    return "Cannot reach Parallax API. Check the API URL in the popup and that the FastAPI server listens on 0.0.0.0.";
+    return "Cannot reach the classifier. Check NEXT_PUBLIC_CLASSIFIER_URL in dashboard/.env.local and that FastAPI is running.";
   }
   return text;
 }
 
-async function getApiBase() {
-  const stored = await chrome.storage.local.get({
-    apiBaseUrl: cachedApiBase || API_BASES[0]
-  });
-  const base = String(stored.apiBaseUrl || API_BASES[0]).replace(/\/$/, "");
+function getApiBase() {
+  const base = envConfig().apiUrl.replace(/\/$/, "");
   cachedApiBase = base;
   return base;
 }
 
 async function apiFetch(path, init = {}) {
-  const base = await getApiBase();
+  const base = getApiBase();
   const response = await fetchLoopback(`${base}${path}`, init);
   cachedApiBase = base;
   return response;
@@ -227,21 +243,109 @@ async function fetchLoopback(url, init = {}) {
     cache: "no-store"
   };
 
-  const hostname = new URL(url).hostname;
-  const isLoopback = hostname === "127.0.0.1" || hostname === "localhost" || hostname === "[::1]";
-  if (isLoopback) {
+  try {
+    return await fetch(url, options);
+  } catch (first) {
+    const hostname = new URL(url).hostname;
+    const isLoopback = hostname === "127.0.0.1" || hostname === "localhost" || hostname === "[::1]";
     try {
-      return await fetch(url, { ...options, targetAddressSpace: "loopback" });
+      return await fetch(url, {
+        ...options,
+        targetAddressSpace: isLoopback ? "loopback" : "local"
+      });
     } catch {
-      return await fetch(url, options);
+      throw first;
+    }
+  }
+}
+
+function dashboardFromApi(apiBase) {
+  try {
+    const api = new URL(String(apiBase || "").replace(/\/$/, ""));
+    return `${api.protocol}//${api.hostname}:3000`;
+  } catch {
+    return "";
+  }
+}
+
+function dashboardCandidates() {
+  const env = envConfig();
+  const list = [
+    env.dashboardUrl,
+    cachedDashboardBase,
+    dashboardFromApi(env.apiUrl),
+    ...DASHBOARD_FALLBACKS
+  ]
+    .map((value) => String(value || "").replace(/\/$/, ""))
+    .filter(Boolean);
+  return [...new Set(list)];
+}
+
+async function getPairingToken() {
+  const stored = await chrome.storage.local.get({ pairingToken: "" });
+  return String(stored.pairingToken || "").trim();
+}
+
+async function ingestDashboardEvent(message) {
+  const token = await getPairingToken();
+  const payload = {
+    eventType: message.eventType,
+    platform: message.platform || "facebook",
+    postId: message.postId,
+    isNegative: message.isNegative,
+    occurredAt: message.occurredAt || new Date().toISOString(),
+    pairingToken: token || undefined
+  };
+
+  const bases = await dashboardCandidates();
+  let lastError = "Dashboard offline";
+  for (const base of bases) {
+    try {
+      const response = await fetchLoopback(`${base}/api/events`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) {
+        const details = await response.text().catch(() => "");
+        lastError = `Dashboard ingest failed (${response.status}): ${details.slice(0, 160)}`;
+        continue;
+      }
+      cachedDashboardBase = base;
+      dashboardLastError = "";
+      return response.json();
+    } catch (error) {
+      lastError = String(error?.message || error);
     }
   }
 
-  try {
-    return await fetch(url, { ...options, targetAddressSpace: "local" });
-  } catch {
-    return await fetch(url, options);
+  throw new Error(lastError);
+}
+
+async function pingDashboard() {
+  const token = await getPairingToken();
+  const bases = await dashboardCandidates();
+  let lastError = "Dashboard offline";
+
+  for (const base of bases) {
+    try {
+      const url = new URL(`${base}/api/health`);
+      if (token) url.searchParams.set("token", token);
+      const response = await fetchLoopback(url.toString(), { method: "GET" });
+      if (!response.ok) {
+        lastError = `Dashboard offline (${response.status}) at ${base}`;
+        continue;
+      }
+      const payload = await response.json();
+      cachedDashboardBase = base;
+      dashboardLastError = "";
+      return { ok: true, ...payload, baseUrl: base };
+    } catch (error) {
+      lastError = `${base}: ${String(error?.message || error)}`;
+    }
   }
+
+  throw new Error(lastError);
 }
 
 async function pingApi() {
@@ -276,40 +380,6 @@ async function classifyPost(text) {
   const isNegative = Boolean(payload.isNegative ?? payload.is_negative);
   console.info("[Parallax] api", { isNegative });
   return { ok: true, isNegative };
-}
-
-async function ingestDashboardEvent(message) {
-  const payload = {
-    eventType: message.eventType,
-    platform: message.platform || "facebook",
-    postId: message.postId,
-    isNegative: message.isNegative,
-    occurredAt: message.occurredAt || new Date().toISOString()
-  };
-
-  const response = await fetchLoopback(`${DASHBOARD_BASE}/api/events`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  });
-
-  if (!response.ok) {
-    const details = await response.text().catch(() => "");
-    throw new Error(`Dashboard ingest failed (${response.status}): ${details.slice(0, 160)}`);
-  }
-
-  dashboardLastError = "";
-  return response.json();
-}
-
-async function pingDashboard() {
-  const response = await fetchLoopback(`${DASHBOARD_BASE}/api/health`, { method: "GET" });
-  if (!response.ok) {
-    throw new Error(`Dashboard offline (${response.status})`);
-  }
-  const payload = await response.json();
-  dashboardLastError = "";
-  return { ok: true, ...payload, baseUrl: DASHBOARD_BASE };
 }
 
 async function bumpStat(key) {

@@ -1,12 +1,29 @@
+CREATE TABLE IF NOT EXISTS users (
+  id TEXT PRIMARY KEY,
+  display_name TEXT NOT NULL,
+  pairing_token TEXT NOT NULL UNIQUE,
+  created_at TEXT NOT NULL,
+  last_extension_event TEXT,
+  last_health_import TEXT
+);
+
+CREATE TABLE IF NOT EXISTS sessions (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  last_seen_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS post_events (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id TEXT NOT NULL,
   occurred_at TEXT NOT NULL,
   platform TEXT NOT NULL,
   post_id TEXT NOT NULL,
   event_type TEXT NOT NULL,
   is_negative INTEGER,
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-  UNIQUE (post_id, event_type)
+  UNIQUE (user_id, post_id, event_type)
 );
 
 CREATE INDEX IF NOT EXISTS idx_post_events_occurred_at
@@ -15,8 +32,20 @@ CREATE INDEX IF NOT EXISTS idx_post_events_occurred_at
 CREATE INDEX IF NOT EXISTS idx_post_events_type_occurred
   ON post_events (event_type, occurred_at);
 
+CREATE TABLE IF NOT EXISTS mental_daily (
+  user_id TEXT NOT NULL,
+  date TEXT NOT NULL,
+  platform TEXT NOT NULL,
+  classified INTEGER NOT NULL DEFAULT 0,
+  negative INTEGER NOT NULL DEFAULT 0,
+  hidden INTEGER NOT NULL DEFAULT 0,
+  revealed INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (user_id, date, platform)
+);
+
 CREATE TABLE IF NOT EXISTS sleep_nights (
   date TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
   duration_seconds INTEGER NOT NULL,
   sleep_start TEXT,
   sleep_end TEXT,
@@ -30,6 +59,7 @@ CREATE TABLE IF NOT EXISTS sleep_nights (
 
 CREATE TABLE IF NOT EXISTS exercises (
   polar_id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
   start_time TEXT NOT NULL,
   duration_seconds INTEGER NOT NULL,
   sport TEXT,
@@ -49,6 +79,7 @@ CREATE TABLE IF NOT EXISTS exercises (
 
 CREATE TABLE IF NOT EXISTS daily_activity (
   date TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
   step_count INTEGER NOT NULL,
   steps_distance REAL,
   calories INTEGER,
@@ -60,6 +91,7 @@ CREATE INDEX IF NOT EXISTS idx_exercises_start_time
 
 CREATE TABLE IF NOT EXISTS recharge_nights (
   date TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
   ans_charge REAL,
   status TEXT,
   source TEXT NOT NULL

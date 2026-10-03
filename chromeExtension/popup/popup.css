@@ -130,7 +130,7 @@ body {
 }
 
 #dashboard-btn,
-#connect-btn {
+#pair-btn {
   appearance: none;
   border: 0;
   border-radius: 999px;
@@ -153,16 +153,6 @@ body {
   outline: none;
 }
 
-.advanced {
-  margin-top: 4px;
-}
-
-.advanced summary {
-  cursor: pointer;
-  color: var(--muted);
-  font-size: 12px;
-}
-
 .field {
   display: flex;
   flex-direction: column;
@@ -172,7 +162,7 @@ body {
   font-size: 12px;
 }
 
-#api-url {
+#pairing-token {
   appearance: none;
   border: 1px solid #e4ddd2;
   border-radius: 12px;
@@ -182,19 +172,19 @@ body {
   font-size: 13px;
 }
 
-#api-url:focus {
+#pairing-token:focus {
   outline: 1px solid var(--lilac);
 }
 
-#connect-btn.secondary {
+#pair-btn.secondary {
   width: 100%;
   background: var(--lilac-soft);
   color: var(--ink);
   font-size: 14px;
 }
 
-#connect-btn.secondary:hover,
-#connect-btn.secondary:focus-visible {
+#pair-btn.secondary:hover,
+#pair-btn.secondary:focus-visible {
   background: #e6dcff;
   outline: none;
 }

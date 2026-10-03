@@ -1,3 +1,4 @@
+import { getSoloUser } from "./auth";
 import { getDb, setMeta } from "./db";
 import { toIso } from "./dates";
 
@@ -160,25 +161,26 @@ export async function syncPolarData(): Promise<{
   ]);
 
   const db = getDb();
+  const ownerId = getSoloUser().id;
   const insertExercise = db.prepare(
     `INSERT OR REPLACE INTO exercises
-      (polar_id, start_time, duration_seconds, sport, calories, cardio_load, source)
-     VALUES (?, ?, ?, ?, ?, ?, 'polar')`
+      (polar_id, user_id, start_time, duration_seconds, sport, calories, cardio_load, source)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'polar')`
   );
   const insertSleep = db.prepare(
     `INSERT OR REPLACE INTO sleep_nights
-      (date, duration_seconds, sleep_start, sleep_end, source)
-     VALUES (?, ?, ?, ?, 'polar')`
+      (date, user_id, duration_seconds, sleep_start, sleep_end, source)
+     VALUES (?, ?, ?, ?, ?, 'polar')`
   );
   const insertRecharge = db.prepare(
     `INSERT OR REPLACE INTO recharge_nights
-      (date, ans_charge, status, source)
-     VALUES (?, ?, ?, 'polar')`
+      (date, user_id, ans_charge, status, source)
+     VALUES (?, ?, ?, ?, 'polar')`
   );
 
-  db.prepare("DELETE FROM exercises WHERE source = 'fixture'").run();
-  db.prepare("DELETE FROM sleep_nights WHERE source = 'fixture'").run();
-  db.prepare("DELETE FROM recharge_nights WHERE source = 'fixture'").run();
+  db.prepare("DELETE FROM exercises WHERE source = 'fixture' AND user_id = ?").run(ownerId);
+  db.prepare("DELETE FROM sleep_nights WHERE source = 'fixture' AND user_id = ?").run(ownerId);
+  db.prepare("DELETE FROM recharge_nights WHERE source = 'fixture' AND user_id = ?").run(ownerId);
 
   let exercises = 0;
   for (const item of asArray(exercisesRaw, ["exercises"])) {
@@ -193,6 +195,7 @@ export async function syncPolarData(): Promise<{
     const durationSeconds = duration && duration > 1000 ? Math.round(duration / 1e9) || duration : duration;
     insertExercise.run(
       id,
+      ownerId,
       start,
       Math.round(durationSeconds || 0),
       pickString(record, ["sport", "detailed-sport-info"]),
@@ -217,6 +220,7 @@ export async function syncPolarData(): Promise<{
     const durationSeconds = seconds > 100000 ? Math.round(seconds / 1e9) : seconds;
     insertSleep.run(
       date,
+      ownerId,
       Math.round(durationSeconds),
       pickString(record, ["sleep_start_time", "sleepStartTime"]),
       pickString(record, ["sleep_end_time", "sleepEndTime"])
@@ -232,6 +236,7 @@ export async function syncPolarData(): Promise<{
     if (!date) continue;
     insertRecharge.run(
       date,
+      ownerId,
       pickNumber(record, ["ans_charge", "ansCharge"]),
       pickString(record, ["nightly_recharge_status", "status"])
     );
