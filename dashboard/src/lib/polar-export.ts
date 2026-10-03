@@ -1,4 +1,5 @@
 import JSZip from "jszip";
+import { getSoloUser, touchHealthImport } from "./auth";
 import { getDb, setMeta } from "./db";
 import { toIso } from "./dates";
 import { parseDuration } from "./polar";
@@ -363,7 +364,10 @@ function parseArchive(files: Array<{ name: string; data: unknown }>): {
   };
 }
 
-export async function importPolarZip(buffer: Buffer): Promise<{
+export async function importPolarZip(
+  buffer: Buffer,
+  userId = getSoloUser().id
+): Promise<{
   exercises: number;
   sleep: number;
   activity: number;
@@ -377,37 +381,38 @@ export async function importPolarZip(buffer: Buffer): Promise<{
   const db = getDb();
   const insertExercise = db.prepare(
     `INSERT OR REPLACE INTO exercises
-      (polar_id, start_time, duration_seconds, sport, calories, cardio_load, source,
+      (polar_id, user_id, start_time, duration_seconds, sport, calories, cardio_load, source,
        hr_avg, hr_max, cardio_load_label, distance_meters, name,
        hr_cap, zone_low_seconds, zone_mid_seconds, zone_high_seconds)
-     VALUES (?, ?, ?, ?, ?, ?, 'export', ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'export', ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   );
   const insertSleep = db.prepare(
     `INSERT OR REPLACE INTO sleep_nights
-      (date, duration_seconds, sleep_start, sleep_end, source,
+      (date, user_id, duration_seconds, sleep_start, sleep_end, source,
        score, rem_seconds, deep_seconds, light_seconds, efficiency_percent)
-     VALUES (?, ?, ?, ?, 'export', ?, ?, ?, ?, ?)`
+     VALUES (?, ?, ?, ?, ?, 'export', ?, ?, ?, ?, ?)`
   );
   const insertActivity = db.prepare(
     `INSERT OR REPLACE INTO daily_activity
-      (date, step_count, steps_distance, calories, source)
-     VALUES (?, ?, ?, ?, 'export')`
+      (date, user_id, step_count, steps_distance, calories, source)
+     VALUES (?, ?, ?, ?, ?, 'export')`
   );
   const insertRecharge = db.prepare(
     `INSERT OR REPLACE INTO recharge_nights
-      (date, ans_charge, status, source)
-     VALUES (?, ?, ?, 'export')`
+      (date, user_id, ans_charge, status, source)
+     VALUES (?, ?, ?, ?, 'export')`
   );
 
   db.transaction(() => {
-    db.prepare("DELETE FROM exercises").run();
-    db.prepare("DELETE FROM sleep_nights").run();
-    db.prepare("DELETE FROM recharge_nights").run();
-    db.prepare("DELETE FROM daily_activity").run();
+    db.prepare("DELETE FROM exercises WHERE user_id = ?").run(userId);
+    db.prepare("DELETE FROM sleep_nights WHERE user_id = ?").run(userId);
+    db.prepare("DELETE FROM recharge_nights WHERE user_id = ?").run(userId);
+    db.prepare("DELETE FROM daily_activity WHERE user_id = ?").run(userId);
 
     for (const item of parsed.exercises) {
       insertExercise.run(
         item.id,
+        userId,
         item.startTime,
         item.durationSeconds,
         item.sport,
@@ -427,6 +432,7 @@ export async function importPolarZip(buffer: Buffer): Promise<{
     for (const night of parsed.sleeps) {
       insertSleep.run(
         night.date,
+        userId,
         night.durationSeconds,
         night.sleepStart,
         night.sleepEnd,
@@ -438,15 +444,16 @@ export async function importPolarZip(buffer: Buffer): Promise<{
       );
     }
     for (const day of parsed.activities) {
-      insertActivity.run(day.date, day.stepCount, day.stepsDistance, day.calories);
+      insertActivity.run(day.date, userId, day.stepCount, day.stepsDistance, day.calories);
     }
     for (const night of parsed.recharges) {
-      insertRecharge.run(night.date, night.ansCharge, night.status);
+      insertRecharge.run(night.date, userId, night.ansCharge, night.status);
     }
   })();
 
   setMeta("last_polar_sync", toIso());
   setMeta("data_source", "export");
+  touchHealthImport(userId);
 
   return {
     exercises: parsed.exercises.length,

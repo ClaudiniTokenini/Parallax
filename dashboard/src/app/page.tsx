@@ -2,12 +2,14 @@ import { AppShell } from "@/components/app-shell";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { OverviewHero } from "@/components/overview-hero";
 import { PlayButton } from "@/components/play-button";
+import { getRequestUser } from "@/lib/auth";
 import { getOverviewPayload } from "@/lib/insight-engine";
 
 export const dynamic = "force-dynamic";
 
-export default function OverviewPage() {
-  const data = getOverviewPayload();
+export default async function OverviewPage() {
+  const user = await getRequestUser();
+  const data = getOverviewPayload(user.id);
 
   return (
     <AppShell current="/">

@@ -34,15 +34,13 @@
 
       <button id="dashboard-btn" type="button">Show dashboard</button>
 
-      <details class="advanced">
-        <summary>Classifier API</summary>
-        <label class="field">
-          API URL
-          <input id="api-url" type="url" placeholder="http://127.0.0.1:8000" />
-        </label>
-        <button id="connect-btn" type="button" class="secondary">Save &amp; connect</button>
-      </details>
+      <label class="field">
+        Pairing code
+        <input id="pairing-token" type="text" placeholder="plx_…" autocomplete="off" spellcheck="false" />
+      </label>
+      <button id="pair-btn" type="button" class="secondary">Save pairing code</button>
     </main>
+    <script src="../env.js"></script>
     <script src="popup.js"></script>
   </body>
 </html>

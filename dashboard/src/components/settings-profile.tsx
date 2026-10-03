@@ -1,0 +1,117 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+
+export function SettingsProfile({
+  displayName,
+  pairingToken
+}: {
+  displayName: string;
+  pairingToken: string;
+}) {
+  const router = useRouter();
+  const [name, setName] = useState(displayName);
+  const [token, setToken] = useState(pairingToken);
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function saveName() {
+    setBusy(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/auth/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ displayName: name })
+      });
+      const payload = (await response.json()) as { ok?: boolean; error?: string; displayName?: string };
+      if (!response.ok || !payload.ok) throw new Error(payload.error || "Could not save name");
+      setName(payload.displayName || name);
+      setMessage("Profile name saved.");
+      router.refresh();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not save name");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function rotateToken() {
+    setBusy(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/auth/token", { method: "POST" });
+      const payload = (await response.json()) as { ok?: boolean; error?: string; pairingToken?: string };
+      if (!response.ok || !payload.ok) throw new Error(payload.error || "Could not rotate code");
+      setToken(payload.pairingToken || token);
+      setMessage("New pairing code. Paste it in the extension.");
+      router.refresh();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not rotate code");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function copyToken() {
+    try {
+      await navigator.clipboard.writeText(token);
+      setMessage("Pairing code copied.");
+    } catch {
+      setMessage("Copy the code manually.");
+    }
+  }
+
+  return (
+    <div className="rounded-[28px] bg-white/70 p-6">
+      <p className="text-[11px] tracking-[0.16em] text-[#7a746b]">LOCAL PROFILE</p>
+      <p className="mt-2 max-w-2xl text-sm text-[#7a746b]">
+        This machine keeps one profile. The dashboard uses a cookie. The extension authenticates
+        with the pairing code — paste it in the popup.
+      </p>
+
+      <label className="mt-5 block text-sm text-[#7a746b]">
+        Display name
+        <input
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          className="mt-2 w-full rounded-2xl border border-[#efe8dc] bg-white px-4 py-3 text-[#1d1a16]"
+        />
+      </label>
+
+      <div className="mt-4">
+        <p className="text-sm text-[#7a746b]">Pairing code</p>
+        <code className="mt-2 block break-all rounded-2xl bg-[#fbf7f1] px-4 py-3 text-sm">{token}</code>
+      </div>
+
+      <div className="mt-5 flex flex-wrap gap-3">
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void saveName()}
+          className="rounded-full bg-[#cbb8f3] px-5 py-2 text-sm font-medium disabled:opacity-50"
+        >
+          Save name
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void copyToken()}
+          className="rounded-full bg-[#efe8ff] px-5 py-2 text-sm font-medium disabled:opacity-50"
+        >
+          Copy code
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void rotateToken()}
+          className="rounded-full bg-[#1d1a16] px-5 py-2 text-sm font-medium text-[#fbf7f1] disabled:opacity-50"
+        >
+          New pairing code
+        </button>
+      </div>
+      {message ? <p className="mt-3 text-sm text-[#7a746b]">{message}</p> : null}
+    </div>
+  );
+}

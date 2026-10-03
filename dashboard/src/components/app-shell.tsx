@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { getRequestUser, initialsFor } from "@/lib/auth";
 
 const LINKS = [
   { href: "/", label: "Overview" },
@@ -8,13 +9,16 @@ const LINKS = [
   { href: "/settings", label: "Settings" }
 ];
 
-export function AppShell({
+export async function AppShell({
   current,
   children
 }: {
   current: string;
   children: ReactNode;
 }) {
+  const user = await getRequestUser();
+  const mark = initialsFor(user.displayName);
+
   return (
     <div className="min-h-screen bg-[#fbf7f1] text-[#1d1a16]">
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-6">
@@ -38,8 +42,11 @@ export function AppShell({
             );
           })}
         </nav>
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#efe8ff] text-sm">
-          You
+        <div
+          title={user.displayName}
+          className="flex h-10 min-w-10 items-center justify-center rounded-full bg-[#efe8ff] px-2 text-sm"
+        >
+          {mark}
         </div>
       </header>
       <nav className="mx-auto flex w-full max-w-6xl gap-2 overflow-auto px-6 pb-2 md:hidden">

@@ -1,20 +1,22 @@
+const env = typeof PARALLAX_ENV === "object" && PARALLAX_ENV ? PARALLAX_ENV : {};
+const DEFAULT_API = String(env.apiUrl || "http://127.0.0.1:8000").replace(/\/$/, "");
+const DEFAULT_DASHBOARD = String(env.dashboardUrl || "http://127.0.0.1:3000").replace(/\/$/, "");
+
 const llmStatusEl = document.getElementById("llm-status");
 const fbStatusEl = document.getElementById("fb-status");
 const dashboardStatusEl = document.getElementById("dashboard-status");
 const dashboardBtn = document.getElementById("dashboard-btn");
-const connectBtn = document.getElementById("connect-btn");
-const apiUrlInput = document.getElementById("api-url");
+const pairBtn = document.getElementById("pair-btn");
+const pairingInput = document.getElementById("pairing-token");
 const enabledToggle = document.getElementById("enabled-toggle");
 const toggleLabel = document.getElementById("toggle-label");
-const DASHBOARD_URL = "http://127.0.0.1:3000";
-const DEFAULT_API = "http://127.0.0.1:8000";
 
 dashboardBtn.addEventListener("click", () => {
   openDashboard();
 });
 
-chrome.storage.local.get({ apiBaseUrl: DEFAULT_API, enabled: true }, (stored) => {
-  apiUrlInput.value = stored.apiBaseUrl || DEFAULT_API;
+chrome.storage.local.get({ enabled: true, pairingToken: "" }, (stored) => {
+  pairingInput.value = stored.pairingToken || "";
   setToggle(stored.enabled !== false);
   pingApi();
 });
@@ -29,23 +31,24 @@ enabledToggle.addEventListener("change", async () => {
   pingFacebook();
 });
 
-connectBtn.addEventListener("click", async () => {
-  const apiBaseUrl = normalizeApiUrl(apiUrlInput.value);
-  apiUrlInput.value = apiBaseUrl;
-  connectBtn.disabled = true;
-
+pairBtn.addEventListener("click", async () => {
+  const pairingToken = String(pairingInput.value || "").trim();
+  pairingInput.value = pairingToken;
+  pairBtn.disabled = true;
   try {
-    const origin = `${new URL(apiBaseUrl).origin}/*`;
-    await chrome.permissions.request({ origins: [origin, "http://*/*"] });
-    await chrome.storage.local.set({ apiBaseUrl });
-  } catch (error) {
-    llmStatusEl.textContent = String(error);
-    llmStatusEl.classList.add("err");
-    connectBtn.disabled = false;
-    return;
+    await chrome.permissions.request({
+      origins: [
+        `${new URL(DEFAULT_DASHBOARD).origin}/*`,
+        `${new URL(DEFAULT_API).origin}/*`,
+        "http://*/*"
+      ]
+    });
+  } catch {
+    // Permission may already be granted.
   }
-
-  connectBtn.disabled = false;
+  await chrome.storage.local.set({ pairingToken });
+  pairBtn.disabled = false;
+  pingDashboard();
   pingApi();
 });
 
@@ -57,7 +60,7 @@ function openDashboard() {
       chrome.tabs.create({ url: chrome.runtime.getURL("dashboard.html") });
       return;
     }
-    chrome.tabs.create({ url: DASHBOARD_URL });
+    chrome.tabs.create({ url: response.baseUrl || DEFAULT_DASHBOARD });
   });
 }
 
@@ -144,12 +147,22 @@ function pingDashboard() {
 
   chrome.runtime.sendMessage({ type: "PING_DASHBOARD" }, (response) => {
     if (chrome.runtime.lastError || !response?.ok) {
-      dashboardStatusEl.textContent = "Dashboard offline. Run npm run dev in dashboard/.";
+      const detail =
+        response?.error || chrome.runtime.lastError?.message || "Run npm run dev in dashboard/.";
+      dashboardStatusEl.textContent = `Dashboard offline. ${detail}`;
       dashboardStatusEl.classList.add("err");
       return;
     }
 
-    dashboardStatusEl.textContent = "Dashboard ready — Show dashboard opens it.";
+    if (response.pairingError) {
+      dashboardStatusEl.textContent = "Pairing code not recognized. Copy it from Settings.";
+      dashboardStatusEl.classList.add("err");
+      return;
+    }
+
+    dashboardStatusEl.textContent = response.paired
+      ? `Paired as ${response.displayName || "You"} — events go to this profile.`
+      : "Dashboard ready. Paste the pairing code from Settings.";
     dashboardStatusEl.classList.add("ok");
   });
 }

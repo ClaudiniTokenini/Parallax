@@ -8,6 +8,7 @@ export type PostEventInput = {
   postId: string;
   isNegative?: boolean | null;
   occurredAt?: string;
+  pairingToken?: string | null;
 };
 
 export type DigitalCounts = {
@@ -136,10 +137,35 @@ export type PhysicalPayload = {
   lastSleepScore: number | null;
 };
 
+export type MentalPlatformShare = {
+  platform: Platform;
+  label: string;
+  counts: DigitalCounts;
+};
+
+export type MentalLoad = DigitalCounts & {
+  verdict: string;
+  verdictDetail: string;
+};
+
+export type MentalSummary = {
+  periodLabel: string;
+  asOf: string;
+  pepTalks: string[];
+  affirmation: string;
+  supporting: string;
+  load: MentalLoad;
+  last3Days: DigitalCounts;
+  last14Days: DigitalCounts;
+  platforms: MentalPlatformShare[];
+};
+
 export type MentalPayload = {
   last3Days: DigitalCounts;
   last14Days: DigitalCounts;
   lastExtensionEvent: string | null;
+  summary: MentalSummary;
+  displayName: string;
 };
 
 export type SettingsPayload = {
@@ -153,4 +179,7 @@ export type SettingsPayload = {
   sleepCount: number;
   exerciseCount: number;
   activityCount: number;
+  displayName: string;
+  pairingToken: string;
+  userId: string;
 };

@@ -1,5 +1,6 @@
 import { preflight, withCors } from "@/lib/cors";
 import { getDb } from "@/lib/db";
+import { getRequestUser } from "@/lib/auth";
 import { importPolarZip } from "@/lib/polar-export";
 
 export const runtime = "nodejs";
@@ -22,8 +23,9 @@ export async function POST(request: Request) {
     }
 
     getDb();
+    const user = await getRequestUser();
     const buffer = Buffer.from(await file.arrayBuffer());
-    const result = await importPolarZip(buffer);
+    const result = await importPolarZip(buffer, user.id);
     return withCors(request, { ok: true, ...result });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Import failed";

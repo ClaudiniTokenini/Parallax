@@ -1,3 +1,4 @@
+import { getUserById, getSoloUser } from "./auth";
 import { affirmationFor } from "./affirmations";
 import { formatLongDate } from "./dates";
 import { getDigitalCounts, getPhysicalPayload } from "./queries";
@@ -41,10 +42,10 @@ function labelRecovery(score: number | null, hoursSinceWorkout: number | null): 
   return "Steady recovery after last activity";
 }
 
-export function computeInsight(): Insight {
-  const digital3 = getDigitalCounts(3);
-  const digital14 = getDigitalCounts(14);
-  const physical = getPhysicalPayload();
+export function computeInsight(userId?: string): Insight {
+  const digital3 = getDigitalCounts(3, userId);
+  const digital14 = getDigitalCounts(14, userId);
+  const physical = getPhysicalPayload(userId);
   const latestRecharge = physical.rechargeNights[0];
   const recharge = rechargeScore(latestRecharge);
 
@@ -131,15 +132,16 @@ export function computeInsight(): Insight {
   };
 }
 
-export function getOverviewPayload(): OverviewPayload {
-  const digital3 = getDigitalCounts(3);
+export function getOverviewPayload(userId?: string): OverviewPayload {
+  const user = (userId ? getUserById(userId) : null) ?? getSoloUser();
+  const digital3 = getDigitalCounts(3, user.id);
   return {
     dateLabel: formatLongDate(),
     blockedLast3Days: digital3.hidden,
     revealedLast3Days: digital3.revealed,
     dataSource: (getMeta("data_source") as DataSource | null) ?? null,
-    lastExtensionEvent: getMeta("last_extension_event"),
-    lastPolarSync: getMeta("last_polar_sync"),
-    insight: computeInsight()
+    lastExtensionEvent: user.lastExtensionEvent,
+    lastPolarSync: user.lastHealthImport ?? getMeta("last_polar_sync"),
+    insight: computeInsight(user.id)
   };
 }

@@ -1,4 +1,5 @@
 import { preflight, withCors } from "@/lib/cors";
+import { getRequestUser } from "@/lib/auth";
 import { getPhysicalPayload } from "@/lib/queries";
 
 export const runtime = "nodejs";
@@ -8,6 +9,7 @@ export function OPTIONS(request: Request) {
   return preflight(request);
 }
 
-export function GET(request: Request) {
-  return withCors(request, { ok: true, ...getPhysicalPayload() });
+export async function GET(request: Request) {
+  const user = await getRequestUser();
+  return withCors(request, { ok: true, ...getPhysicalPayload(user.id) });
 }

@@ -1,5 +1,6 @@
-import { getDb, setMeta } from "./db";
-import { toIso } from "./dates";
+import { getDb } from "./db";
+import { localDateKey, toIso } from "./dates";
+import { getSoloUser, touchExtensionEvent } from "./auth";
 import type { EventType, Platform, PostEventInput } from "./types";
 
 const EVENT_TYPES = new Set<EventType>(["classified", "hidden", "revealed"]);
@@ -38,19 +39,50 @@ export function parseEventInput(body: unknown): PostEventInput | { error: string
     platform: platform as Platform,
     postId,
     isNegative,
-    occurredAt
+    occurredAt,
+    pairingToken:
+      typeof input.pairingToken === "string" && input.pairingToken.trim()
+        ? input.pairingToken.trim()
+        : null
   };
 }
 
-export function insertPostEvent(input: PostEventInput): { inserted: boolean } {
+function bumpDaily(input: {
+  userId: string;
+  date: string;
+  platform: string;
+  classified: number;
+  negative: number;
+  hidden: number;
+  revealed: number;
+}): void {
+  getDb()
+    .prepare(
+      `INSERT INTO mental_daily
+        (user_id, date, platform, classified, negative, hidden, revealed)
+       VALUES (@userId, @date, @platform, @classified, @negative, @hidden, @revealed)
+       ON CONFLICT(user_id, date, platform) DO UPDATE SET
+         classified = classified + excluded.classified,
+         negative = negative + excluded.negative,
+         hidden = hidden + excluded.hidden,
+         revealed = revealed + excluded.revealed`
+    )
+    .run(input);
+}
+
+export function insertPostEvent(
+  input: PostEventInput,
+  userId = getSoloUser().id
+): { inserted: boolean } {
   const occurredAt = input.occurredAt || toIso();
   const result = getDb()
     .prepare(
       `INSERT OR IGNORE INTO post_events
-        (occurred_at, platform, post_id, event_type, is_negative)
-       VALUES (?, ?, ?, ?, ?)`
+        (user_id, occurred_at, platform, post_id, event_type, is_negative)
+       VALUES (?, ?, ?, ?, ?, ?)`
     )
     .run(
+      userId,
       occurredAt,
       input.platform,
       input.postId,
@@ -58,6 +90,18 @@ export function insertPostEvent(input: PostEventInput): { inserted: boolean } {
       input.isNegative == null ? null : input.isNegative ? 1 : 0
     );
 
-  setMeta("last_extension_event", occurredAt);
+  if (result.changes > 0) {
+    bumpDaily({
+      userId,
+      date: localDateKey(new Date(occurredAt)),
+      platform: input.platform,
+      classified: input.eventType === "classified" ? 1 : 0,
+      negative: input.eventType === "classified" && input.isNegative ? 1 : 0,
+      hidden: input.eventType === "hidden" ? 1 : 0,
+      revealed: input.eventType === "revealed" ? 1 : 0
+    });
+  }
+
+  touchExtensionEvent(userId, occurredAt);
   return { inserted: result.changes > 0 };
 }
