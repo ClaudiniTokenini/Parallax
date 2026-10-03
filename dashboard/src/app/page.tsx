@@ -21,7 +21,7 @@ export default async function OverviewPage() {
             <h1 className="serif mt-3 max-w-xl text-5xl leading-tight md:text-5xl">
               {data.insight.affirmation}
             </h1>
-            <PlayButton />
+            <PlayButton text={data.insight.affirmation} />
           </div>
           <p className="pt-2 text-sm text-[#7a746b]">{data.dateLabel}</p>
         </div>
