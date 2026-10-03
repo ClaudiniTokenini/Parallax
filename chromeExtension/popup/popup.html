@@ -19,7 +19,11 @@
       <p id="llm-status" class="status">Checking Parallax API…</p>
       <p id="fb-status" class="status">Checking Facebook tab…</p>
 
-      <button id="connect-btn" type="button" class="secondary" hidden>Connect to API</button>
+      <label class="field">
+        API URL
+        <input id="api-url" type="url" placeholder="http://192.168.0.12:8000" />
+      </label>
+      <button id="connect-btn" type="button" class="secondary">Save & connect</button>
       <button id="dashboard-btn" type="button">Show dashboard</button>
     </main>
     <script src="popup.js"></script>
