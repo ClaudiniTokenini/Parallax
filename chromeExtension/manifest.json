@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Parallax",
-  "version": "0.1.5",
-  "description": "Blurs negative Facebook posts using a local LM Studio classifier.",
+  "version": "0.2.0",
+  "description": "Blurs negative Facebook posts using a local FastAPI classifier.",
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",

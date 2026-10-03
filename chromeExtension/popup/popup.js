@@ -23,15 +23,15 @@ connectBtn.addEventListener("click", async () => {
     llmStatusEl.classList.add("err");
   }
   connectBtn.disabled = false;
-  pingLlm();
+  pingApi();
 });
 
-pingLlm();
+pingApi();
 pingFacebook();
 
-function pingLlm() {
+function pingApi() {
   llmStatusEl.classList.remove("ok", "err");
-  llmStatusEl.textContent = "Checking LM Studio…";
+  llmStatusEl.textContent = "Checking Parallax API…";
 
   chrome.runtime.sendMessage({ type: "PING_LLM" }, (response) => {
     if (chrome.runtime.lastError || !response?.ok) {
@@ -42,7 +42,7 @@ function pingLlm() {
       return;
     }
 
-    llmStatusEl.textContent = `LM Studio ready · ${response.model}`;
+    llmStatusEl.textContent = `API ready · ${response.model}`;
     llmStatusEl.classList.add("ok");
     connectBtn.hidden = true;
   });
