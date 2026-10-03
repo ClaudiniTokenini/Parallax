@@ -172,6 +172,7 @@
       lastError = "";
       failedUntil.delete(id);
       classified.set(id, { isNegative: Boolean(response.isNegative), revealed: false });
+      recordEvent("classified", id, Boolean(response.isNegative));
       log(`result negative=${Boolean(response.isNegative)}`, text.slice(0, 80));
       if (response.isNegative) {
         const target = findArticleById(id) || resolveArticle(article, id);
@@ -242,6 +243,7 @@
       if (!prev.countedHidden) {
         classified.set(id, { ...prev, isNegative: true, countedHidden: true });
         recordStat("postsHidden");
+        recordEvent("hidden", id, true);
       }
       log("hiding post", id);
     }
@@ -419,6 +421,7 @@
     if (markRevealed) {
       const prev = classified.get(id) || { isNegative: true, revealed: false };
       classified.set(id, { ...prev, revealed: true });
+      recordEvent("revealed", id, true);
     }
 
     const nodes = [article, rec?.article, rec?.cover];
@@ -550,6 +553,22 @@
     chrome.runtime.sendMessage({ type: "RECORD_STAT", key }, () => {
       void chrome.runtime.lastError;
     });
+  }
+
+  function recordEvent(eventType, postId, isNegative) {
+    chrome.runtime.sendMessage(
+      {
+        type: "RECORD_EVENT",
+        eventType,
+        platform: "facebook",
+        postId,
+        isNegative,
+        occurredAt: new Date().toISOString()
+      },
+      () => {
+        void chrome.runtime.lastError;
+      }
+    );
   }
 
   function log(...args) {

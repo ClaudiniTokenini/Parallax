@@ -2,3 +2,15 @@
 __pycache__/
 *.pyc
 .pytest_cache/
+.DS_Store
+Thumbs.db
+node_modules/
+.next/
+dist/
+*.log
+.env
+.env.local
+dashboard/data/*.db
+dashboard/data/*.db-journal
+dashboard/data/*.db-wal
+dashboard/data/*.db-shm
