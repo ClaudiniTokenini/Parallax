@@ -13,3 +13,7 @@ export const DEFAULT_AFFIRMATION = "I am in control of my thoughts.";
 export function affirmationFor(headline: string): string {
   return AFFIRMATIONS[headline] || DEFAULT_AFFIRMATION;
 }
+
+export function isKnownAffirmation(text: string): boolean {
+  return text === DEFAULT_AFFIRMATION || Object.values(AFFIRMATIONS).includes(text);
+}
