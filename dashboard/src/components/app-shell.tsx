@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { LogoutButton } from "@/components/logout-button";
-import { getRequestUser, initialsFor } from "@/lib/auth";
+import { PairingTutorial } from "@/components/pairing-tutorial";
+import { getRequestUser } from "@/lib/auth";
 
 const LINKS = [
   { href: "/", label: "Overview" },
@@ -20,7 +21,6 @@ export async function AppShell({
   compact?: boolean;
 }) {
   const user = await getRequestUser();
-  const mark = initialsFor(user.displayName);
 
   return (
     <div className={`${compact ? "flex h-dvh flex-col overflow-hidden" : "min-h-screen"} bg-[#fbf7f1] text-[#1d1a16]`}>
@@ -45,7 +45,8 @@ export async function AppShell({
             );
           })}
         </nav>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
+          <PairingTutorial displayName={user.displayName} />
           <LogoutButton />
         </div>
       </header>
