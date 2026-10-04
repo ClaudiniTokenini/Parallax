@@ -131,7 +131,9 @@
       posts.push(article);
     }
 
-    return posts;
+    return posts.filter(
+      (post, index) => !posts.some((other, otherIndex) => otherIndex !== index && other.contains(post))
+    );
   }
 
   function isTopLevelTweet(article) {
@@ -258,8 +260,16 @@
 
     startOverlaySync();
     dimArticle(cover);
+    pruneOrphanOverlays();
 
     let rec = overlays.get(id);
+    if (rec && !rec.host?.isConnected) {
+      rec.host?.remove();
+      overlays.delete(id);
+      rec = null;
+    }
+    if (!rec && overlayCoversNode(cover, id)) return;
+
     if (!rec) {
       rec = { host: createOverlayHost(id), article, cover };
       (document.body || document.documentElement).appendChild(rec.host);
@@ -284,6 +294,40 @@
     const cell = article.closest('[data-testid="cellInnerDiv"]');
     if (cell) return cell;
     return article;
+  }
+
+  function nodesOverlap(a, b) {
+    if (!a || !b) return false;
+    if (a === b) return true;
+    if (a.contains(b) || b.contains(a)) return true;
+    const first = a.getBoundingClientRect();
+    const second = b.getBoundingClientRect();
+    const overlap =
+      Math.max(0, Math.min(first.right, second.right) - Math.max(first.left, second.left)) *
+      Math.max(0, Math.min(first.bottom, second.bottom) - Math.max(first.top, second.top));
+    const smaller = Math.min(first.width * first.height, second.width * second.height);
+    return smaller > 800 && overlap / smaller > 0.72;
+  }
+
+  function overlayCoversNode(node, exceptId) {
+    for (const [id, rec] of overlays) {
+      if (id === exceptId) continue;
+      if (!rec.host?.isConnected) continue;
+      if (nodesOverlap(rec.cover, node) || nodesOverlap(rec.article, node) || nodesOverlap(rec.host, node)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function pruneOrphanOverlays() {
+    const live = new Set([...overlays.values()].map((rec) => rec.host));
+    document.querySelectorAll(`[${OVERLAY_ATTR}]`).forEach((host) => {
+      if (!live.has(host)) host.remove();
+    });
+    for (const [id, rec] of [...overlays.entries()]) {
+      if (!rec.host?.isConnected) overlays.delete(id);
+    }
   }
 
   function createOverlayHost(id) {
@@ -384,6 +428,8 @@
   }
 
   function syncOverlays() {
+    pruneOrphanOverlays();
+    const seenCovers = new Set();
     for (const [id, rec] of overlays) {
       const state = classified.get(id);
       if (state?.revealed) {
@@ -403,6 +449,12 @@
       }
       rec.article = article;
       rec.cover = getCoverTarget(article);
+      if (seenCovers.has(rec.cover) || overlayCoversNode(rec.cover, id)) {
+        rec.host.remove();
+        overlays.delete(id);
+        continue;
+      }
+      seenCovers.add(rec.cover);
       dimArticle(rec.cover);
       positionOverlay(rec);
     }
