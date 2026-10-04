@@ -49,13 +49,11 @@ export default async function OverviewPage() {
           }}
         />
 
-        <div className="mx-auto mt-2 max-w-2xl shrink-0 text-center">
+        <div className="mx-auto my-3 max-w-2xl shrink-0 text-center">
           <p className="text-xs tracking-[0.18em] text-[#7a746b]">
             RESULT FROM POST STATS + HEALTH DATA
           </p>
           <h2 className="serif mt-1 text-3xl leading-tight md:text-4xl">{data.insight.headline}</h2>
-          <p className="mt-2 text-sm text-[#7a746b]">{data.insight.summary}</p>
-          <p className="mt-1 text-xs text-[#9a9388]">{data.insight.disclaimer}</p>
         </div>
       </section>
     </AppShell>

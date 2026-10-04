@@ -25,10 +25,8 @@
   let scanTimer = 0;
   let lastFoundCount = 0;
   let lastError = "";
-  let badgeDismissed = false;
   let overlaySyncStarted = false;
   let enabled = true;
-  let badgeLabel = null;
   let persistTimer = 0;
 
   chrome.storage.local.get({ enabled: true, [CACHE_KEY]: {} }, (stored) => {
@@ -66,7 +64,7 @@
   reportStatus();
   observeFeed();
   whenReady(() => {
-    ensureBadge();
+    document.querySelectorAll(`[${BADGE_ATTR}]`).forEach((node) => node.remove());
   });
 
   function whenReady(fn) {
@@ -81,7 +79,6 @@
     const observer = new MutationObserver(() => {
       window.clearTimeout(scanTimer);
       scanTimer = window.setTimeout(() => {
-        if (!badgeDismissed) ensureBadge();
         scanFeed();
       }, 250);
     });
@@ -93,7 +90,6 @@
   }
 
   function applyEnabledState(rescan) {
-    updateBadgeText();
     if (!enabled) {
       pauseOverlays();
       inFlight.clear();
@@ -506,47 +502,6 @@
     return document.querySelector(`[${HOST_ATTR}="${CSS.escape(id)}"]`);
   }
 
-  function ensureBadge() {
-    if (badgeDismissed) return;
-    if (document.querySelector(`[${BADGE_ATTR}]`)) return;
-    if (!document.body) return;
-
-    const host = document.createElement("div");
-    host.setAttribute(BADGE_ATTR, "1");
-    host.style.cssText = [
-      "position:fixed",
-      "right:16px",
-      "bottom:16px",
-      "z-index:2147483646",
-      "pointer-events:auto"
-    ].join(";");
-
-    const shadow = host.attachShadow({ mode: "closed" });
-    const pill = document.createElement("div");
-    pill.style.cssText =
-      "display:flex;align-items:center;gap:8px;background:#0c101c;color:#f4f7fb;border:1px solid #38d6c4;border-radius:999px;padding:8px 10px 8px 12px;font:600 12px/1.2 system-ui,'Segoe UI',sans-serif;box-shadow:0 8px 24px rgba(0,0,0,0.35);";
-
-    const label = document.createElement("span");
-    badgeLabel = label;
-    label.textContent = enabled ? "Parallax is scanning this feed" : "Parallax is paused";
-
-    const close = document.createElement("button");
-    close.type = "button";
-    close.textContent = "×";
-    close.style.cssText =
-      "appearance:none;border:0;background:transparent;color:#9aa7b8;font-size:16px;cursor:pointer;line-height:1;";
-    close.addEventListener("click", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      badgeDismissed = true;
-      host.remove();
-    });
-
-    pill.append(label, close);
-    shadow.append(pill);
-    document.body.appendChild(host);
-  }
-
   function resolveArticle(article, id) {
     if (article?.isConnected) return article;
     return document.querySelector(`[${HOST_ATTR}="${CSS.escape(id)}"]`);
@@ -592,14 +547,6 @@
       hash = Math.imul(hash, 16777619);
     }
     return (hash >>> 0).toString(16);
-  }
-
-  function updateBadgeText() {
-    if (badgeLabel) {
-      badgeLabel.textContent = enabled
-        ? "Parallax is scanning this feed"
-        : "Parallax is paused";
-    }
   }
 
   function getContentStatus() {

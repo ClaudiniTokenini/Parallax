@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { markTutorialAfterLogin } from "@/components/pairing-tutorial";
 
 export function AuthForm({
   mode
@@ -32,6 +33,7 @@ export function AuthForm({
       });
       const payload = (await response.json()) as { ok?: boolean; error?: string };
       if (!response.ok || !payload.ok) throw new Error(payload.error || "Could not continue");
+      markTutorialAfterLogin();
       router.push("/");
       router.refresh();
     } catch (error) {
