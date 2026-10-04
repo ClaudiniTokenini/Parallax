@@ -51,7 +51,12 @@ export function PlayButton({ text }: { text: string }) {
   async function ensureAudio(): Promise<HTMLAudioElement> {
     if (audioRef.current && loadedForRef.current === text) return audioRef.current;
 
-    const response = await fetch("/api/affirmation/speak");
+    const response = await fetch("/api/affirmation/speak", {
+      method: "POST",
+      cache: "no-store",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text })
+    });
     const contentType = response.headers.get("content-type") || "";
     if (!response.ok || !contentType.includes("audio")) {
       const payload = (await response.json().catch(() => null)) as { error?: string } | null;
