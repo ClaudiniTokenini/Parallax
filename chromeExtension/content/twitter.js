@@ -15,7 +15,6 @@
   const BADGE_ATTR = "data-parallax-badge";
   const FETCH_ATTR = "data-parallax-fetch";
 
-  const CACHE_KEY = "plxTwClassified";
   const classified = new Map();
   const inFlight = new Set();
   const failedUntil = new Map();
@@ -27,23 +26,17 @@
   let lastError = "";
   let overlaySyncStarted = false;
   let enabled = true;
-  let persistTimer = 0;
+  let lastHref = location.href;
 
-  chrome.storage.local.get({ enabled: true, [CACHE_KEY]: {} }, (stored) => {
+  chrome.storage.local.get({ enabled: true }, (stored) => {
     enabled = stored.enabled !== false;
-    hydrateClassified(stored[CACHE_KEY]);
     applyEnabledState(true);
   });
 
   chrome.storage.onChanged.addListener((changes, area) => {
-    if (area !== "local") return;
-    if (changes.enabled) {
-      enabled = changes.enabled.newValue !== false;
-      applyEnabledState(true);
-    }
-    if (changes[CACHE_KEY]?.newValue) {
-      hydrateClassified(changes[CACHE_KEY].newValue);
-    }
+    if (area !== "local" || !changes.enabled) return;
+    enabled = changes.enabled.newValue !== false;
+    applyEnabledState(true);
   });
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -117,6 +110,7 @@
       reportStatus();
       return;
     }
+    resetIfNavigated();
     const posts = findFeedPosts();
     lastFoundCount = posts.length;
     for (const post of posts) {
@@ -539,24 +533,18 @@
     );
   }
 
-  function hydrateClassified(cache) {
-    for (const [id, state] of Object.entries(cache || {})) {
-      if (!id || !state || typeof state !== "object") continue;
-      classified.set(id, state);
-    }
-  }
-
   function rememberClassified(id, state) {
     classified.set(id, state);
-    persistClassified();
   }
 
-  function persistClassified() {
-    window.clearTimeout(persistTimer);
-    persistTimer = window.setTimeout(() => {
-      const entries = [...classified.entries()].slice(-500);
-      chrome.storage.local.set({ [CACHE_KEY]: Object.fromEntries(entries) });
-    }, 200);
+  function resetIfNavigated() {
+    if (location.href === lastHref) return;
+    lastHref = location.href;
+    classified.clear();
+    inFlight.clear();
+    failedUntil.clear();
+    for (const rec of overlays.values()) rec.host.remove();
+    overlays.clear();
   }
 
   function log(...args) {
